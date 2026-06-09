@@ -10,11 +10,13 @@ public class FileService : IFileService
 {
     private readonly AppDbContext _context;
     private readonly IWebHostEnvironment _environment;
+    private readonly ILogger<FileService> _logger;
 
-    public FileService(AppDbContext context, IWebHostEnvironment environment)
+    public FileService(AppDbContext context, IWebHostEnvironment environment, ILogger<FileService> logger)
     {
         _context = context;
         _environment = environment;
+        _logger = logger;
     }
 
     public async Task<FileUploadResponse> UploadAsync(int projectId, IFormFile file, int userId)
@@ -29,6 +31,12 @@ public class FileService : IFileService
         {
             throw new InvalidOperationException("File is required.");
         }
+
+        _logger.LogInformation(
+            "Uploading file {FileName} to project {ProjectId} by user {UserId}",
+            file.FileName,
+            projectId,
+            userId);
 
         var maxVersion = await _context.UploadedFiles
             .Where(f => f.ProjectId == projectId)
@@ -63,11 +71,13 @@ public class FileService : IFileService
             .Include(f => f.UploadedByUser)
             .FirstAsync(f => f.Id == uploadedFile.Id);
 
+        _logger.LogInformation("File {FileId} uploaded successfully", saved.Id);
         return MapToResponse(saved);
     }
 
     public async Task<List<FileListResponse>> GetByProjectIdAsync(int projectId)
     {
+        _logger.LogDebug("Fetching files for project {ProjectId}", projectId);
         var files = await _context.UploadedFiles
             .Include(f => f.UploadedByUser)
             .Where(f => f.ProjectId == projectId)
@@ -79,6 +89,7 @@ public class FileService : IFileService
 
     public async Task<FileStream?> DownloadAsync(int fileId)
     {
+        _logger.LogDebug("Downloading file {FileId}", fileId);
         var file = await _context.UploadedFiles.FirstOrDefaultAsync(f => f.Id == fileId);
         if (file == null)
         {

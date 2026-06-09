@@ -9,14 +9,20 @@ namespace WorkflowApprovalApi.Services.Implementations;
 public class CommentService : ICommentService
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<CommentService> _logger;
 
-    public CommentService(AppDbContext context)
+    public CommentService(AppDbContext context, ILogger<CommentService> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task<CommentResponse> CreateAsync(CommentCreateRequest request, int userId)
     {
+        _logger.LogInformation(
+            "Creating comment on project {ProjectId} by user {UserId}",
+            request.ProjectId,
+            userId);
         var projectExists = await _context.Projects.AnyAsync(p => p.Id == request.ProjectId);
         if (!projectExists)
         {
@@ -38,11 +44,13 @@ public class CommentService : ICommentService
             .Include(c => c.User)
             .FirstAsync(c => c.Id == comment.Id);
 
+        _logger.LogInformation("Comment {CommentId} created successfully", saved.Id);
         return MapToResponse(saved);
     }
 
     public async Task<List<CommentResponse>> GetByProjectIdAsync(int projectId)
     {
+        _logger.LogDebug("Fetching comments for project {ProjectId}", projectId);
         var comments = await _context.Comments
             .Include(c => c.User)
             .Where(c => c.ProjectId == projectId)

@@ -6,3 +6,7 @@ obj/
 appsettings.*.local.json
 wwwroot/uploads/*
 !wwwroot/uploads/.gitkeep
+logs/
+WorkflowApprovalUI/bin/
+WorkflowApprovalUI/obj/
+WorkflowApprovalUI/wwwroot/uploads/*

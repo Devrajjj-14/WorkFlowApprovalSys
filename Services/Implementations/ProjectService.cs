@@ -9,14 +9,17 @@ namespace WorkflowApprovalApi.Services.Implementations;
 public class ProjectService : IProjectService
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<ProjectService> _logger;
 
-    public ProjectService(AppDbContext context)
+    public ProjectService(AppDbContext context, ILogger<ProjectService> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task<ProjectResponse> CreateAsync(ProjectCreateRequest request, int userId)
     {
+        _logger.LogInformation("Creating project {ProjectName} for user {UserId}", request.Name, userId);
         var project = new Project
         {
             Name = request.Name,
@@ -34,11 +37,13 @@ public class ProjectService : IProjectService
             .Include(p => p.CreatedByUser)
             .FirstAsync(p => p.Id == project.Id);
 
+        _logger.LogInformation("Project {ProjectId} created successfully", created.Id);
         return MapToResponse(created);
     }
 
     public async Task<List<ProjectResponse>> GetAllAsync()
     {
+        _logger.LogDebug("Fetching all projects");
         var projects = await _context.Projects
             .Include(p => p.CreatedByUser)
             .OrderByDescending(p => p.CreatedAt)
@@ -49,6 +54,7 @@ public class ProjectService : IProjectService
 
     public async Task<ProjectResponse?> GetByIdAsync(int id)
     {
+        _logger.LogDebug("Fetching project {ProjectId}", id);
         var project = await _context.Projects
             .Include(p => p.CreatedByUser)
             .FirstOrDefaultAsync(p => p.Id == id);
@@ -58,6 +64,7 @@ public class ProjectService : IProjectService
 
     public async Task<ProjectResponse?> UpdateStatusAsync(int id, ProjectUpdateStatusRequest request)
     {
+        _logger.LogInformation("Updating project {ProjectId} status to {Status}", id, request.Status);
         var project = await _context.Projects
             .Include(p => p.CreatedByUser)
             .FirstOrDefaultAsync(p => p.Id == id);

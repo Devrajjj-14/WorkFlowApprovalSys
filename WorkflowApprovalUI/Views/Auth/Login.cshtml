@@ -1,0 +1,55 @@
+@model WorkflowApprovalUI.Models.LoginViewModel
+@{ ViewData["Title"] = "Sign In"; Layout = "_Layout"; }
+
+<div class="auth-page">
+    <div class="auth-left">
+        <div class="auth-brand">
+            <i class="fa-solid fa-diagram-project"></i>
+            <span>FlowDesk</span>
+        </div>
+        <h1 class="auth-headline">Streamline your<br/>approval workflow.</h1>
+        <p class="auth-sub">Manage projects, tasks, files, and team approvals in one unified workspace.</p>
+        <div class="auth-features">
+            <div class="auth-feature"><i class="fa-solid fa-check-circle"></i> Role-based access control</div>
+            <div class="auth-feature"><i class="fa-solid fa-check-circle"></i> Real-time file versioning</div>
+            <div class="auth-feature"><i class="fa-solid fa-check-circle"></i> Full audit trail</div>
+        </div>
+    </div>
+    <div class="auth-right">
+        <div class="auth-card">
+            <h2 class="auth-card-title">Welcome back</h2>
+            <p class="auth-card-sub">Sign in to your workspace</p>
+
+            @if (ViewBag.Error != null)
+            {
+                <div class="form-error-banner"><i class="fa-solid fa-triangle-exclamation"></i> @ViewBag.Error</div>
+            }
+            @if (TempData["Success"] != null)
+            {
+                <div class="form-success-banner"><i class="fa-solid fa-circle-check"></i> @TempData["Success"]</div>
+            }
+
+            <form method="post" asp-action="Login" asp-controller="Auth">
+                <div class="form-group">
+                    <label>Email address</label>
+                    <div class="input-icon-wrap">
+                        <i class="fa-solid fa-envelope"></i>
+                        <input asp-for="Email" type="email" placeholder="you@company.com" class="form-input" required />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="input-icon-wrap">
+                        <i class="fa-solid fa-lock"></i>
+                        <input asp-for="Password" type="password" placeholder="••••••••" class="form-input" required />
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary btn-full">
+                    Sign In <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </form>
+
+            <p class="auth-switch">Don't have an account? <a asp-action="Register">Create one</a></p>
+        </div>
+    </div>
+</div>

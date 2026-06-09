@@ -9,14 +9,20 @@ namespace WorkflowApprovalApi.Services.Implementations;
 public class ApprovalService : IApprovalService
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<ApprovalService> _logger;
 
-    public ApprovalService(AppDbContext context)
+    public ApprovalService(AppDbContext context, ILogger<ApprovalService> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task<ApprovalResponse> CreateAsync(ApprovalCreateRequest request, int userId)
     {
+        _logger.LogInformation(
+            "Creating approval for project {ProjectId} by user {UserId}",
+            request.ProjectId,
+            userId);
         var projectExists = await _context.Projects.AnyAsync(p => p.Id == request.ProjectId);
         if (!projectExists)
         {
@@ -47,11 +53,13 @@ public class ApprovalService : IApprovalService
         await _context.SaveChangesAsync();
 
         var saved = await LoadApprovalAsync(approval.Id);
+        _logger.LogInformation("Approval {ApprovalId} created successfully", saved!.Id);
         return MapToResponse(saved!);
     }
 
     public async Task<List<ApprovalResponse>> GetByProjectIdAsync(int projectId)
     {
+        _logger.LogDebug("Fetching approvals for project {ProjectId}", projectId);
         var approvals = await _context.Approvals
             .Include(a => a.File)
             .Include(a => a.RequestedByUser)
@@ -103,6 +111,11 @@ public class ApprovalService : IApprovalService
         approval.ReviewedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+        _logger.LogInformation(
+            "Approval {ApprovalId} updated to {Status} by reviewer {ReviewerId}",
+            approval.Id,
+            status,
+            reviewerId);
         return MapToResponse(approval);
     }
 

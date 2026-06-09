@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] – FlowDesk</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link rel="stylesheet" href="~/css/app.css" />
+</head>
+<body class="@(Context.User.Identity?.IsAuthenticated == true ? "app-layout" : "auth-layout")">
+
+@if (Context.User.Identity?.IsAuthenticated == true)
+{
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <span class="brand-icon"><i class="fa-solid fa-diagram-project"></i></span>
+            <span class="brand-name">FlowDesk</span>
+        </div>
+        <nav class="sidebar-nav">
+            <a asp-controller="Projects" asp-action="Index" class="nav-item @(ViewContext.RouteData.Values["controller"]?.ToString() == "Projects" ? "active" : "")">
+                <i class="fa-solid fa-layer-group"></i><span>Projects</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-chip">
+                <div class="user-avatar">@(Context.Session.GetString("UserName")?[0..1].ToUpper() ?? "?")</div>
+                <div class="user-info">
+                    <div class="user-name">@Context.Session.GetString("UserName")</div>
+                    <div class="user-role">@Context.Session.GetString("UserRole")</div>
+                </div>
+            </div>
+            <a asp-controller="Auth" asp-action="Logout" class="logout-btn" title="Sign out">
+                <i class="fa-solid fa-right-from-bracket"></i>
+            </a>
+        </div>
+    </aside>
+
+    <div class="main-wrap">
+        <header class="topbar">
+            <div class="topbar-title">@ViewData["Title"]</div>
+            <div class="topbar-actions">@RenderSection("TopbarActions", required: false)</div>
+        </header>
+        <main class="page-content">
+            @if (TempData["Success"] != null)
+            {
+                <div class="toast toast-success"><i class="fa-solid fa-circle-check"></i> @TempData["Success"]</div>
+            }
+            @if (TempData["Error"] != null)
+            {
+                <div class="toast toast-error"><i class="fa-solid fa-circle-exclamation"></i> @TempData["Error"]</div>
+            }
+            @RenderBody()
+        </main>
+    </div>
+}
+else
+{
+    @RenderBody()
+}
+
+<script src="~/js/app.js"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

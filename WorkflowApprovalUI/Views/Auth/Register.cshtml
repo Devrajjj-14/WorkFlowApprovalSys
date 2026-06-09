@@ -1,0 +1,71 @@
+@model WorkflowApprovalUI.Models.RegisterViewModel
+@{ ViewData["Title"] = "Create Account"; Layout = "_Layout"; }
+
+<div class="auth-page">
+    <div class="auth-left">
+        <div class="auth-brand">
+            <i class="fa-solid fa-diagram-project"></i>
+            <span>FlowDesk</span>
+        </div>
+        <h1 class="auth-headline">Join your team's<br/>workflow hub.</h1>
+        <p class="auth-sub">Create your account to start collaborating on projects and approvals.</p>
+        <div class="auth-features">
+            <div class="auth-feature"><i class="fa-solid fa-check-circle"></i> 5 role types available</div>
+            <div class="auth-feature"><i class="fa-solid fa-check-circle"></i> Instant project access</div>
+            <div class="auth-feature"><i class="fa-solid fa-check-circle"></i> Secure JWT sessions</div>
+        </div>
+    </div>
+    <div class="auth-right">
+        <div class="auth-card">
+            <h2 class="auth-card-title">Create account</h2>
+            <p class="auth-card-sub">Get started in seconds</p>
+
+            @if (ViewBag.Error != null)
+            {
+                <div class="form-error-banner"><i class="fa-solid fa-triangle-exclamation"></i> @ViewBag.Error</div>
+            }
+
+            <form method="post" asp-action="Register" asp-controller="Auth">
+                <div class="form-group">
+                    <label>Full name</label>
+                    <div class="input-icon-wrap">
+                        <i class="fa-solid fa-user"></i>
+                        <input asp-for="FullName" type="text" placeholder="Jane Smith" class="form-input" required />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Email address</label>
+                    <div class="input-icon-wrap">
+                        <i class="fa-solid fa-envelope"></i>
+                        <input asp-for="Email" type="email" placeholder="you@company.com" class="form-input" required />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <div class="input-icon-wrap">
+                        <i class="fa-solid fa-lock"></i>
+                        <input asp-for="Password" type="password" placeholder="Min. 6 characters" class="form-input" required />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <div class="input-icon-wrap">
+                        <i class="fa-solid fa-id-badge"></i>
+                        <select asp-for="Role" class="form-input form-select">
+                            <option value="Admin">Admin</option>
+                            <option value="Manager">Manager</option>
+                            <option value="Designer" selected>Designer</option>
+                            <option value="Reviewer">Reviewer</option>
+                            <option value="Client">Client</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary btn-full">
+                    Create Account <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </form>
+
+            <p class="auth-switch">Already have an account? <a asp-action="Login">Sign in</a></p>
+        </div>
+    </div>
+</div>

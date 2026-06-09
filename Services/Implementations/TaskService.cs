@@ -3,20 +3,28 @@ using WorkflowApprovalApi.Data;
 using WorkflowApprovalApi.DTOs;
 using WorkflowApprovalApi.Models;
 using WorkflowApprovalApi.Services.Interfaces;
+using TaskStatusEnum = WorkflowApprovalApi.Models.TaskStatus;
 
 namespace WorkflowApprovalApi.Services.Implementations;
 
 public class TaskService : ITaskService
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<TaskService> _logger;
 
-    public TaskService(AppDbContext context)
+    public TaskService(AppDbContext context, ILogger<TaskService> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task<TaskResponse> CreateAsync(TaskCreateRequest request, int assignedByUserId)
     {
+        _logger.LogInformation(
+            "Creating task {TaskTitle} for project {ProjectId} by user {UserId}",
+            request.Title,
+            request.ProjectId,
+            assignedByUserId);
         var projectExists = await _context.Projects.AnyAsync(p => p.Id == request.ProjectId);
         if (!projectExists)
         {
@@ -34,7 +42,7 @@ public class TaskService : ITaskService
             ProjectId = request.ProjectId,
             Title = request.Title,
             Description = request.Description,
-            Status = TaskStatus.Pending,
+            Status = TaskStatusEnum.Pending,
             AssignedToUserId = request.AssignedToUserId,
             AssignedByUserId = assignedByUserId,
             Priority = Enum.Parse<Priority>(request.Priority),
@@ -50,11 +58,13 @@ public class TaskService : ITaskService
             .Include(t => t.AssignedByUser)
             .FirstAsync(t => t.Id == task.Id);
 
+        _logger.LogInformation("Task {TaskId} created successfully", created.Id);
         return MapToResponse(created);
     }
 
     public async Task<List<TaskResponse>> GetByProjectIdAsync(int projectId)
     {
+        _logger.LogDebug("Fetching tasks for project {ProjectId}", projectId);
         var tasks = await _context.Tasks
             .Include(t => t.AssignedToUser)
             .Include(t => t.AssignedByUser)
@@ -67,6 +77,7 @@ public class TaskService : ITaskService
 
     public async Task<TaskResponse?> UpdateStatusAsync(int id, TaskUpdateStatusRequest request)
     {
+        _logger.LogInformation("Updating task {TaskId} status to {Status}", id, request.Status);
         var task = await _context.Tasks
             .Include(t => t.AssignedToUser)
             .Include(t => t.AssignedByUser)
@@ -77,10 +88,11 @@ public class TaskService : ITaskService
             return null;
         }
 
-        if (Enum.TryParse<TaskStatus>(request.Status, out var status))
+        if (Enum.TryParse<TaskStatusEnum>(request.Status, out var status))
         {
             task.Status = status;
         }
+
         task.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 

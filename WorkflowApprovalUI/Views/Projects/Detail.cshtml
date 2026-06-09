@@ -1,0 +1,374 @@
+@model WorkflowApprovalUI.Models.ProjectDetailViewModel
+@{
+    ViewData["Title"] = Model.Project.Name;
+    var role = Context.Session.GetString("UserRole") ?? "";
+    var canManage = role is "Admin" or "Manager";
+    var canApprove = role is "Admin" or "Manager" or "Reviewer" or "Client";
+    var canRequest = role is "Admin" or "Manager" or "Designer";
+}
+
+@section TopbarActions {
+    <a asp-action="Index" class="btn-ghost"><i class="fa-solid fa-arrow-left"></i> All Projects</a>
+    @if (canManage)
+    {
+        <button class="btn-outline" onclick="openModal('modal-status')">
+            <i class="fa-solid fa-sliders"></i> Change Status
+        </button>
+    }
+}
+
+<!-- Project Hero -->
+<div class="project-hero">
+    <div class="project-hero-left">
+        <div class="hero-icon">@Model.Project.Name[0..1].ToUpper()</div>
+        <div>
+            <h2 class="hero-title">@Model.Project.Name</h2>
+            <p class="hero-desc">@Model.Project.Description</p>
+        </div>
+    </div>
+    <div class="project-hero-right">
+        <div class="hero-stat">
+            <span class="hero-stat-val">@Model.Tasks.Count</span>
+            <span class="hero-stat-lbl">Tasks</span>
+        </div>
+        <div class="hero-stat">
+            <span class="hero-stat-val">@Model.Files.Count</span>
+            <span class="hero-stat-lbl">Files</span>
+        </div>
+        <div class="hero-stat">
+            <span class="hero-stat-val">@Model.Approvals.Count</span>
+            <span class="hero-stat-lbl">Approvals</span>
+        </div>
+        <span class="status-badge status-@Model.Project.Status.ToLower().Replace(" ","") status-lg">@Model.Project.Status</span>
+    </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+    <button class="tab active" data-tab="tasks"><i class="fa-solid fa-list-check"></i> Tasks <span class="tab-count">@Model.Tasks.Count</span></button>
+    <button class="tab" data-tab="approvals"><i class="fa-solid fa-stamp"></i> Approvals <span class="tab-count">@Model.Approvals.Count</span></button>
+    <button class="tab" data-tab="files"><i class="fa-solid fa-paperclip"></i> Files <span class="tab-count">@Model.Files.Count</span></button>
+    <button class="tab" data-tab="comments"><i class="fa-solid fa-comments"></i> Comments <span class="tab-count">@Model.Comments.Count</span></button>
+</div>
+
+<!-- ═══════════════════ TASKS TAB ═══════════════════ -->
+<div class="tab-panel active" id="tab-tasks">
+    @if (canManage)
+    {
+        <div class="panel-action-bar">
+            <button class="btn-primary btn-sm" onclick="openModal('modal-new-task')">
+                <i class="fa-solid fa-plus"></i> Add Task
+            </button>
+        </div>
+    }
+
+    @if (!Model.Tasks.Any())
+    {
+        <div class="empty-panel"><i class="fa-solid fa-list-check"></i><span>No tasks yet</span></div>
+    }
+    else
+    {
+        <div class="task-list">
+            @foreach (var t in Model.Tasks)
+            {
+                <div class="task-row">
+                    <div class="task-row-left">
+                        <span class="priority-dot priority-@t.Priority.ToLower()" title="@t.Priority priority"></span>
+                        <div>
+                            <div class="task-title">@t.Title</div>
+                            <div class="task-meta">@t.Description</div>
+                        </div>
+                    </div>
+                    <div class="task-row-right">
+                        <span class="status-badge status-@t.Status.ToLower().Replace(" ","")">@t.Status</span>
+                        <form method="post" asp-controller="Tasks" asp-action="UpdateStatus" class="inline-form">
+                            <input type="hidden" name="id" value="@t.Id" />
+                            <input type="hidden" name="projectId" value="@Model.Project.Id" />
+                            <select name="status" class="inline-select" onchange="this.form.submit()">
+                                <option value="" disabled selected>Move to…</option>
+                                <option value="Pending">Pending</option>
+                                <option value="InProgress">In Progress</option>
+                                <option value="Completed">Completed</option>
+                                <option value="Blocked">Blocked</option>
+                            </select>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- ═══════════════════ APPROVALS TAB ═══════════════════ -->
+<div class="tab-panel" id="tab-approvals">
+    @if (canRequest)
+    {
+        <div class="panel-action-bar">
+            <button class="btn-primary btn-sm" onclick="openModal('modal-new-approval')">
+                <i class="fa-solid fa-plus"></i> Request Approval
+            </button>
+        </div>
+    }
+
+    @if (!Model.Approvals.Any())
+    {
+        <div class="empty-panel"><i class="fa-solid fa-stamp"></i><span>No approval requests yet</span></div>
+    }
+    else
+    {
+        <div class="approval-list">
+            @foreach (var a in Model.Approvals)
+            {
+                <div class="approval-card">
+                    <div class="approval-card-top">
+                        <div>
+                            <span class="approval-label">Request #@a.Id</span>
+                            @if (!string.IsNullOrWhiteSpace(a.Remarks))
+                            {
+                                <p class="approval-remarks">"@a.Remarks"</p>
+                            }
+                        </div>
+                        <span class="status-badge status-@a.Status.ToLower().Replace(" ","")">@a.Status</span>
+                    </div>
+                    <div class="approval-meta">
+                        <span><i class="fa-regular fa-clock"></i> Requested @a.RequestedAt.ToString("MMM d, yyyy HH:mm")</span>
+                        @if (a.ReviewedAt.HasValue)
+                        {
+                            <span><i class="fa-solid fa-check"></i> Reviewed @a.ReviewedAt.Value.ToString("MMM d, yyyy HH:mm")</span>
+                        }
+                    </div>
+                    @if (a.Status == "Pending" && canApprove)
+                    {
+                        <div class="approval-actions">
+                            <form method="post" asp-controller="Approvals" asp-action="Approve" class="inline-form">
+                                <input type="hidden" name="id" value="@a.Id" />
+                                <input type="hidden" name="projectId" value="@Model.Project.Id" />
+                                <input type="hidden" name="remarks" value="" />
+                                <button class="btn-success btn-sm">Approve</button>
+                            </form>
+                            <form method="post" asp-controller="Approvals" asp-action="Reject" class="inline-form">
+                                <input type="hidden" name="id" value="@a.Id" />
+                                <input type="hidden" name="projectId" value="@Model.Project.Id" />
+                                <input type="hidden" name="remarks" value="" />
+                                <button class="btn-danger btn-sm">Reject</button>
+                            </form>
+                            <form method="post" asp-controller="Approvals" asp-action="RequestChanges" class="inline-form">
+                                <input type="hidden" name="id" value="@a.Id" />
+                                <input type="hidden" name="projectId" value="@Model.Project.Id" />
+                                <input type="hidden" name="remarks" value="" />
+                                <button class="btn-warning btn-sm">Request Changes</button>
+                            </form>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- ═══════════════════ FILES TAB ═══════════════════ -->
+<div class="tab-panel" id="tab-files">
+    <div class="panel-action-bar">
+        <button class="btn-primary btn-sm" onclick="openModal('modal-upload')">
+            <i class="fa-solid fa-upload"></i> Upload File
+        </button>
+    </div>
+
+    @if (!Model.Files.Any())
+    {
+        <div class="empty-panel"><i class="fa-solid fa-file-arrow-up"></i><span>No files uploaded yet</span></div>
+    }
+    else
+    {
+        <div class="file-list">
+            @foreach (var f in Model.Files)
+            {
+                <div class="file-row">
+                    <div class="file-icon">
+                        @{
+                            var ext = System.IO.Path.GetExtension(f.FileName).ToLower();
+                            var iconClass = ext switch {
+                                ".pdf" => "fa-file-pdf",
+                                ".doc" or ".docx" => "fa-file-word",
+                                ".xls" or ".xlsx" => "fa-file-excel",
+                                ".jpg" or ".jpeg" or ".png" or ".gif" => "fa-file-image",
+                                ".zip" or ".rar" => "fa-file-zipper",
+                                _ => "fa-file"
+                            };
+                        }
+                        <i class="fa-solid @iconClass"></i>
+                    </div>
+                    <div class="file-info">
+                        <div class="file-name">@f.FileName</div>
+                        <div class="file-meta">v@f.VersionNumber · @f.UploadedAt.ToString("MMM d, yyyy")</div>
+                    </div>
+                    <a href="/api/files/@f.Id/download" class="btn-ghost btn-sm" target="_blank">
+                        <i class="fa-solid fa-download"></i> Download
+                    </a>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- ═══════════════════ COMMENTS TAB ═══════════════════ -->
+<div class="tab-panel" id="tab-comments">
+    <div class="comment-compose">
+        <div class="comment-avatar">@(Context.Session.GetString("UserName")?[0..1].ToUpper() ?? "?")</div>
+        <form method="post" asp-controller="Comments" asp-action="Create" class="comment-form">
+            <input type="hidden" name="projectId" value="@Model.Project.Id" />
+            <textarea name="message" class="form-input comment-input" placeholder="Write a comment…" rows="3" required></textarea>
+            <button type="submit" class="btn-primary btn-sm">
+                <i class="fa-solid fa-paper-plane"></i> Post
+            </button>
+        </form>
+    </div>
+
+    @if (!Model.Comments.Any())
+    {
+        <div class="empty-panel"><i class="fa-solid fa-comments"></i><span>No comments yet. Start the conversation.</span></div>
+    }
+    else
+    {
+        <div class="comment-feed">
+            @foreach (var c in Model.Comments.OrderByDescending(x => x.CreatedAt))
+            {
+                <div class="comment-item">
+                    <div class="comment-avatar">U</div>
+                    <div class="comment-bubble">
+                        <div class="comment-header">
+                            <span class="comment-author">User #@c.UserId</span>
+                            <span class="comment-time">@c.CreatedAt.ToString("MMM d · HH:mm")</span>
+                        </div>
+                        <p class="comment-text">@c.Message</p>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- ═══════ MODALS ═══════ -->
+
+@* New Task Modal *@
+<div id="modal-new-task" class="modal-overlay" onclick="closeModalOutside(event,'modal-new-task')">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-list-check"></i> Add Task</h3>
+            <button class="modal-close" onclick="closeModal('modal-new-task')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form method="post" asp-controller="Tasks" asp-action="Create">
+            <input type="hidden" name="ProjectId" value="@Model.Project.Id" />
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Title</label>
+                    <input name="Title" class="form-input" placeholder="Task title" required />
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="Description" class="form-input form-textarea" placeholder="What needs to be done?"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Assign to (User ID)</label>
+                        <input name="AssignedToUserId" type="number" class="form-input" required min="1" />
+                    </div>
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <select name="Priority" class="form-input form-select">
+                            <option value="Low">Low</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="High">High</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-ghost" onclick="closeModal('modal-new-task')">Cancel</button>
+                <button type="submit" class="btn-primary">Create Task</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@* New Approval Modal *@
+<div id="modal-new-approval" class="modal-overlay" onclick="closeModalOutside(event,'modal-new-approval')">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-stamp"></i> Request Approval</h3>
+            <button class="modal-close" onclick="closeModal('modal-new-approval')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form method="post" asp-controller="Approvals" asp-action="Create">
+            <input type="hidden" name="ProjectId" value="@Model.Project.Id" />
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>File ID (optional)</label>
+                    <input name="FileId" type="number" class="form-input" placeholder="Leave blank for project-level" min="1" />
+                </div>
+                <div class="form-group">
+                    <label>Remarks</label>
+                    <textarea name="Remarks" class="form-input form-textarea" placeholder="What should the reviewer check?"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-ghost" onclick="closeModal('modal-new-approval')">Cancel</button>
+                <button type="submit" class="btn-primary">Submit Request</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@* Upload File Modal *@
+<div id="modal-upload" class="modal-overlay" onclick="closeModalOutside(event,'modal-upload')">
+    <div class="modal">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-upload"></i> Upload File</h3>
+            <button class="modal-close" onclick="closeModal('modal-upload')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form method="post" asp-controller="Files" asp-action="Upload" enctype="multipart/form-data">
+            <input type="hidden" name="projectId" value="@Model.Project.Id" />
+            <div class="modal-body">
+                <div class="dropzone" id="dropzone">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                    <p>Drag & drop or <label for="file-input" class="dropzone-link">browse</label></p>
+                    <input id="file-input" type="file" name="file" class="hidden-input" onchange="updateDropzone(this)" required />
+                    <span id="file-name-display" class="file-chosen"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-ghost" onclick="closeModal('modal-upload')">Cancel</button>
+                <button type="submit" class="btn-primary">Upload</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@* Change Status Modal *@
+<div id="modal-status" class="modal-overlay" onclick="closeModalOutside(event,'modal-status')">
+    <div class="modal modal-sm">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-sliders"></i> Change Status</h3>
+            <button class="modal-close" onclick="closeModal('modal-status')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form method="post" asp-controller="Projects" asp-action="UpdateStatus" asp-route-id="@Model.Project.Id">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>New status</label>
+                    <select name="status" class="form-input form-select">
+                        <option value="Draft">Draft</option>
+                        <option value="InProgress">In Progress</option>
+                        <option value="InReview">In Review</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-ghost" onclick="closeModal('modal-status')">Cancel</button>
+                <button type="submit" class="btn-primary">Update</button>
+            </div>
+        </form>
+    </div>
+</div>
