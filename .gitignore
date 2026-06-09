@@ -1,0 +1,45 @@
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+
+# Visual Studio cache/options
+.vs/
+.vscode/
+
+# Entity Framework Plus
+.efplus.json
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+
+# Rider IDE
+.idea/
+*.sln.iml
+
+# Visual Studio Code
+*.code-workspace
+
+# NuGet
+*.nuspec
+*.nupkg
+
+# Rider
+.idea/
+
+# Project specific
+uploads/
+*.db
+*.db-shm
+*.db-wal
+appsettings.Development.json
