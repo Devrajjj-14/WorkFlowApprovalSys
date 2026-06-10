@@ -563,3 +563,115 @@ body {
 .dropzone-link   { color: var(--accent); cursor: pointer; text-decoration: underline; }
 .hidden-input    { display: none; }
 .file-chosen     { font-size: 13px; color: var(--success); margin-top: 8px; display: block; }
+
+/* ── Task card (wraps row + comment thread) ──────────────── */
+.task-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.task-card:hover { border-color: var(--border-light); }
+
+.task-card .task-row {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  margin-bottom: 0;
+}
+
+.task-comment-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--text-dim); font-size: 12px;
+  padding: 5px 10px;
+}
+.task-comment-toggle:hover { color: var(--accent); }
+.task-comment-count {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 20px; padding: 1px 7px; font-size: 11px; font-weight: 600;
+}
+
+/* ── Task comment thread ─────────────────────────────────── */
+.task-comment-thread {
+  display: none;
+  padding: 0 18px 16px;
+}
+.task-comment-thread.open { display: block; }
+
+.thread-divider {
+  height: 1px; background: var(--border); margin-bottom: 14px;
+}
+
+.thread-messages { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+
+.thread-message { display: flex; align-items: flex-start; gap: 10px; }
+
+.thread-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent); display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 10px; flex-shrink: 0; color: #fff;
+}
+
+.thread-bubble {
+  flex: 1;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) var(--radius-sm);
+  padding: 8px 12px;
+}
+.thread-meta {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;
+}
+.thread-author { font-size: 12px; font-weight: 600; color: var(--text); }
+.thread-time   { font-size: 11px; color: var(--text-dim); }
+.thread-text   { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+.thread-empty  { font-size: 13px; color: var(--text-dim); padding: 8px 0 12px; font-style: italic; }
+
+.thread-compose-row {
+  display: flex; align-items: center; gap: 10px;
+}
+.thread-input  { flex: 1; padding: 8px 12px; font-size: 13px; }
+
+/* ── Danger outline button (topbar) ─────────────────────── */
+.btn-danger-outline {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 18px; border-radius: var(--radius-sm);
+  background: transparent; color: var(--danger); font-weight: 600; font-size: 14px;
+  border: 1px solid var(--danger); cursor: pointer; text-decoration: none; transition: all .2s;
+}
+.btn-danger-outline:hover { background: rgba(239,68,68,.1); }
+
+/* ── Icon-only danger button on task row ─────────────────── */
+.btn-icon-danger {
+  width: 30px; height: 30px; border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid transparent;
+  color: var(--text-dim); cursor: pointer; font-size: 13px; transition: all .2s;
+  flex-shrink: 0;
+}
+.btn-icon-danger:hover {
+  background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.25); color: var(--danger);
+}
+
+/* ── Confirm modal text ──────────────────────────────────── */
+.confirm-text {
+  font-size: 15px; color: var(--text); margin-bottom: 10px; line-height: 1.5;
+}
+.confirm-sub {
+  font-size: 13px; color: var(--text-muted); line-height: 1.6;
+  padding: 10px 14px; background: rgba(239,68,68,.07);
+  border: 1px solid rgba(239,68,68,.15); border-radius: var(--radius-sm);
+}
+
+/* ── Image thumbnail in file row ─────────────────────────── */
+.file-icon-thumb {
+  width: 48px; height: 48px; border-radius: 8px;
+  overflow: hidden; padding: 0; background: var(--bg3);
+  border: 1px solid var(--border);
+}
+.file-thumb {
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+}

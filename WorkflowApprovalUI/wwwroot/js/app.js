@@ -21,15 +21,23 @@ document.addEventListener('keydown', e => {
 // ── Tab switching ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   const tabs = document.querySelectorAll('.tab');
+
+  function activateTab(targetName) {
+    tabs.forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    const matchTab = [...tabs].find(t => t.dataset.tab === targetName);
+    const matchPanel = document.getElementById('tab-' + targetName);
+    if (matchTab) matchTab.classList.add('active');
+    if (matchPanel) matchPanel.classList.add('active');
+  }
+
+  // Activate tab from URL query param ?tab=approvals
+  const urlParams = new URLSearchParams(window.location.search);
+  const tabParam = urlParams.get('tab');
+  if (tabParam) activateTab(tabParam);
+
   tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const target = tab.dataset.tab;
-      tabs.forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-      const panel = document.getElementById('tab-' + target);
-      if (panel) panel.classList.add('active');
-    });
+    tab.addEventListener('click', () => activateTab(tab.dataset.tab));
   });
 
   // Auto-dismiss toasts
@@ -48,4 +56,10 @@ function updateDropzone(input) {
   if (display && input.files.length > 0) {
     display.textContent = '✓ ' + input.files[0].name;
   }
+}
+
+// ── Task comment thread toggle ─────────────────────────────
+function toggleTaskComments(taskId) {
+  const thread = document.getElementById('thread-' + taskId);
+  if (thread) thread.classList.toggle('open');
 }

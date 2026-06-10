@@ -69,19 +69,26 @@ public class ProjectService : IProjectService
             .Include(p => p.CreatedByUser)
             .FirstOrDefaultAsync(p => p.Id == id);
 
-        if (project == null)
-        {
-            return null;
-        }
+        if (project == null) return null;
 
         if (Enum.TryParse<ProjectStatus>(request.Status, out var status))
-        {
             project.Status = status;
-        }
+
         project.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
-
         return MapToResponse(project);
+    }
+
+    public async Task<bool> DeleteAsync(int id)
+    {
+        _logger.LogInformation("Deleting project {ProjectId}", id);
+        var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == id);
+        if (project == null) return false;
+
+        _context.Projects.Remove(project);
+        await _context.SaveChangesAsync();
+        _logger.LogInformation("Project {ProjectId} deleted successfully", id);
+        return true;
     }
 
     private static ProjectResponse MapToResponse(Project project)

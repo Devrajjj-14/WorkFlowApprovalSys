@@ -9,7 +9,7 @@ public class ApprovalCreateRequest
 
 public class ApprovalUpdateRequest
 {
-    public string Remarks { get; set; } = string.Empty;
+    public string? Remarks { get; set; }
 }
 
 public class ApprovalResponse

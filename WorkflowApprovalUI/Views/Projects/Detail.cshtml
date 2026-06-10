@@ -5,6 +5,7 @@
     var canManage = role is "Admin" or "Manager";
     var canApprove = role is "Admin" or "Manager" or "Reviewer" or "Client";
     var canRequest = role is "Admin" or "Manager" or "Designer";
+    var currentUserInitial = Context.Session.GetString("UserName")?[0..1].ToUpper() ?? "?";
 }
 
 @section TopbarActions {
@@ -13,6 +14,12 @@
     {
         <button class="btn-outline" onclick="openModal('modal-status')">
             <i class="fa-solid fa-sliders"></i> Change Status
+        </button>
+    }
+    @if (role == "Admin")
+    {
+        <button class="btn-danger-outline" onclick="openModal('modal-delete-project')">
+            <i class="fa-solid fa-trash"></i> Delete Project
         </button>
     }
 }
@@ -48,7 +55,7 @@
     <button class="tab active" data-tab="tasks"><i class="fa-solid fa-list-check"></i> Tasks <span class="tab-count">@Model.Tasks.Count</span></button>
     <button class="tab" data-tab="approvals"><i class="fa-solid fa-stamp"></i> Approvals <span class="tab-count">@Model.Approvals.Count</span></button>
     <button class="tab" data-tab="files"><i class="fa-solid fa-paperclip"></i> Files <span class="tab-count">@Model.Files.Count</span></button>
-    <button class="tab" data-tab="comments"><i class="fa-solid fa-comments"></i> Comments <span class="tab-count">@Model.Comments.Count</span></button>
+    <button class="tab" data-tab="comments"><i class="fa-solid fa-comments"></i> Project Comments <span class="tab-count">@Model.Comments.Count</span></button>
 </div>
 
 <!-- ═══════════════════ TASKS TAB ═══════════════════ -->
@@ -71,29 +78,114 @@
         <div class="task-list">
             @foreach (var t in Model.Tasks)
             {
-                <div class="task-row">
-                    <div class="task-row-left">
-                        <span class="priority-dot priority-@t.Priority.ToLower()" title="@t.Priority priority"></span>
-                        <div>
-                            <div class="task-title">@t.Title</div>
-                            <div class="task-meta">@t.Description</div>
+                var taskComments = Model.TaskComments.TryGetValue(t.Id, out var tc) ? tc : new();
+                <div class="task-card" id="task-@t.Id">
+                    <!-- Task header row -->
+                    <div class="task-row">
+                        <div class="task-row-left">
+                            <span class="priority-dot priority-@t.Priority.ToLower()" title="@t.Priority priority"></span>
+                            <div>
+                                <div class="task-title">@t.Title</div>
+                                <div class="task-meta">@t.Description</div>
+                            </div>
+                        </div>
+                        <div class="task-row-right">
+                            <span class="status-badge status-@t.Status.ToLower().Replace(" ","")">@t.Status</span>
+                            <form method="post" asp-controller="Tasks" asp-action="UpdateStatus" class="inline-form">
+                                <input type="hidden" name="id" value="@t.Id" />
+                                <input type="hidden" name="projectId" value="@Model.Project.Id" />
+                                <select name="status" class="inline-select" onchange="this.form.submit()">
+                                    <option value="" disabled selected>Move to…</option>
+                                    <option value="Pending">Pending</option>
+                                    <option value="InProgress">In Progress</option>
+                                    <option value="Completed">Completed</option>
+                                    <option value="Blocked">Blocked</option>
+                                </select>
+                            </form>
+                            <!-- Toggle task comments -->
+                            <button class="btn-ghost btn-sm task-comment-toggle"
+                                    onclick="toggleTaskComments(@t.Id)"
+                                    title="@taskComments.Count comment(s)">
+                                <i class="fa-solid fa-message"></i>
+                                <span class="task-comment-count" id="count-@t.Id">@taskComments.Count</span>
+                            </button>
+                            @if (canManage)
+                            {
+                                <button class="btn-icon-danger"
+                                        onclick="openModal('modal-delete-task-@t.Id')"
+                                        title="Delete task">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            }
                         </div>
                     </div>
-                    <div class="task-row-right">
-                        <span class="status-badge status-@t.Status.ToLower().Replace(" ","")">@t.Status</span>
-                        <form method="post" asp-controller="Tasks" asp-action="UpdateStatus" class="inline-form">
-                            <input type="hidden" name="id" value="@t.Id" />
+
+                    <!-- Task comment thread (collapsible) -->
+                    <div class="task-comment-thread" id="thread-@t.Id">
+                        <div class="thread-divider"></div>
+
+                        @if (taskComments.Any())
+                        {
+                            <div class="thread-messages">
+                                @foreach (var c in taskComments.OrderBy(x => x.CreatedAt))
+                                {
+                                    <div class="thread-message">
+                                        <div class="thread-avatar">U@c.UserId</div>
+                                        <div class="thread-bubble">
+                                            <div class="thread-meta">
+                                                <span class="thread-author">User #@c.UserId</span>
+                                                <span class="thread-time">@c.CreatedAt.ToString("MMM d · HH:mm")</span>
+                                            </div>
+                                            <p class="thread-text">@c.Message</p>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="thread-empty">No comments yet on this task.</p>
+                        }
+
+                        <!-- Compose -->
+                        <form method="post" asp-controller="TaskComments" asp-action="Create" class="thread-compose">
+                            <input type="hidden" name="taskId" value="@t.Id" />
                             <input type="hidden" name="projectId" value="@Model.Project.Id" />
-                            <select name="status" class="inline-select" onchange="this.form.submit()">
-                                <option value="" disabled selected>Move to…</option>
-                                <option value="Pending">Pending</option>
-                                <option value="InProgress">In Progress</option>
-                                <option value="Completed">Completed</option>
-                                <option value="Blocked">Blocked</option>
-                            </select>
+                            <div class="thread-compose-row">
+                                <div class="thread-avatar">@currentUserInitial</div>
+                                <input name="message" type="text" class="form-input thread-input"
+                                       placeholder="Comment on this task…" required />
+                                <button type="submit" class="btn-primary btn-sm">
+                                    <i class="fa-solid fa-paper-plane"></i>
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>
+
+                @if (canManage)
+                {
+                    <div id="modal-delete-task-@t.Id" class="modal-overlay" onclick="closeModalOutside(event,'modal-delete-task-@t.Id')">
+                        <div class="modal modal-sm">
+                            <div class="modal-header">
+                                <h3><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> Delete Task</h3>
+                                <button class="modal-close" onclick="closeModal('modal-delete-task-@t.Id')"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="confirm-text">Are you sure you want to delete <strong>"@t.Title"</strong>?</p>
+                                <p class="confirm-sub">All comments on this task will also be removed. This cannot be undone.</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn-ghost" onclick="closeModal('modal-delete-task-@t.Id')">Cancel</button>
+                                <form method="post" asp-controller="Tasks" asp-action="Delete" class="inline-form">
+                                    <input type="hidden" name="id" value="@t.Id" />
+                                    <input type="hidden" name="projectId" value="@Model.Project.Id" />
+                                    <button type="submit" class="btn-danger">Delete Task</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                }
             }
         </div>
     }
@@ -140,23 +232,23 @@
                     @if (a.Status == "Pending" && canApprove)
                     {
                         <div class="approval-actions">
-                            <form method="post" asp-controller="Approvals" asp-action="Approve" class="inline-form">
+                            <form method="post" asp-controller="Approvals" asp-action="Approve" class="inline-form" novalidate>
                                 <input type="hidden" name="id" value="@a.Id" />
                                 <input type="hidden" name="projectId" value="@Model.Project.Id" />
                                 <input type="hidden" name="remarks" value="" />
-                                <button class="btn-success btn-sm">Approve</button>
+                                <button type="submit" class="btn-success btn-sm">Approve</button>
                             </form>
-                            <form method="post" asp-controller="Approvals" asp-action="Reject" class="inline-form">
+                            <form method="post" asp-controller="Approvals" asp-action="Reject" class="inline-form" novalidate>
                                 <input type="hidden" name="id" value="@a.Id" />
                                 <input type="hidden" name="projectId" value="@Model.Project.Id" />
                                 <input type="hidden" name="remarks" value="" />
-                                <button class="btn-danger btn-sm">Reject</button>
+                                <button type="submit" class="btn-danger btn-sm">Reject</button>
                             </form>
-                            <form method="post" asp-controller="Approvals" asp-action="RequestChanges" class="inline-form">
+                            <form method="post" asp-controller="Approvals" asp-action="RequestChanges" class="inline-form" novalidate>
                                 <input type="hidden" name="id" value="@a.Id" />
                                 <input type="hidden" name="projectId" value="@Model.Project.Id" />
                                 <input type="hidden" name="remarks" value="" />
-                                <button class="btn-warning btn-sm">Request Changes</button>
+                                <button type="submit" class="btn-warning btn-sm">Request Changes</button>
                             </form>
                         </div>
                     }
@@ -183,26 +275,35 @@
         <div class="file-list">
             @foreach (var f in Model.Files)
             {
+                var ext = System.IO.Path.GetExtension(f.FileName).ToLower();
+                var isImage = ext is ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp";
+                var iconClass = ext switch {
+                    ".pdf"            => "fa-file-pdf",
+                    ".doc" or ".docx" => "fa-file-word",
+                    ".xls" or ".xlsx" => "fa-file-excel",
+                    ".zip" or ".rar"  => "fa-file-zipper",
+                    _                 => "fa-file"
+                };
                 <div class="file-row">
-                    <div class="file-icon">
-                        @{
-                            var ext = System.IO.Path.GetExtension(f.FileName).ToLower();
-                            var iconClass = ext switch {
-                                ".pdf" => "fa-file-pdf",
-                                ".doc" or ".docx" => "fa-file-word",
-                                ".xls" or ".xlsx" => "fa-file-excel",
-                                ".jpg" or ".jpeg" or ".png" or ".gif" => "fa-file-image",
-                                ".zip" or ".rar" => "fa-file-zipper",
-                                _ => "fa-file"
-                            };
+                    <div class="file-icon @(isImage ? "file-icon-thumb" : "")">
+                        @if (isImage)
+                        {
+                            <img src="http://localhost:5000/api/files/@f.Id/download"
+                                 alt="@f.FileName"
+                                 class="file-thumb"
+                                 loading="lazy"
+                                 onerror="this.parentElement.innerHTML='<i class=\'fa-solid fa-file-image\'></i>'" />
                         }
-                        <i class="fa-solid @iconClass"></i>
+                        else
+                        {
+                            <i class="fa-solid @iconClass"></i>
+                        }
                     </div>
                     <div class="file-info">
                         <div class="file-name">@f.FileName</div>
                         <div class="file-meta">v@f.VersionNumber · @f.UploadedAt.ToString("MMM d, yyyy")</div>
                     </div>
-                    <a href="/api/files/@f.Id/download" class="btn-ghost btn-sm" target="_blank">
+                    <a href="http://localhost:5000/api/files/@f.Id/download" class="btn-ghost btn-sm" target="_blank">
                         <i class="fa-solid fa-download"></i> Download
                     </a>
                 </div>
@@ -211,13 +312,13 @@
     }
 </div>
 
-<!-- ═══════════════════ COMMENTS TAB ═══════════════════ -->
+<!-- ═══════════════════ PROJECT COMMENTS TAB ═══════════════════ -->
 <div class="tab-panel" id="tab-comments">
     <div class="comment-compose">
-        <div class="comment-avatar">@(Context.Session.GetString("UserName")?[0..1].ToUpper() ?? "?")</div>
+        <div class="comment-avatar">@currentUserInitial</div>
         <form method="post" asp-controller="Comments" asp-action="Create" class="comment-form">
             <input type="hidden" name="projectId" value="@Model.Project.Id" />
-            <textarea name="message" class="form-input comment-input" placeholder="Write a comment…" rows="3" required></textarea>
+            <textarea name="message" class="form-input comment-input" placeholder="Write a project comment…" rows="3" required></textarea>
             <button type="submit" class="btn-primary btn-sm">
                 <i class="fa-solid fa-paper-plane"></i> Post
             </button>
@@ -226,7 +327,7 @@
 
     @if (!Model.Comments.Any())
     {
-        <div class="empty-panel"><i class="fa-solid fa-comments"></i><span>No comments yet. Start the conversation.</span></div>
+        <div class="empty-panel"><i class="fa-solid fa-comments"></i><span>No project comments yet. Start the conversation.</span></div>
     }
     else
     {
@@ -234,7 +335,7 @@
             @foreach (var c in Model.Comments.OrderByDescending(x => x.CreatedAt))
             {
                 <div class="comment-item">
-                    <div class="comment-avatar">U</div>
+                    <div class="comment-avatar">U@c.UserId</div>
                     <div class="comment-bubble">
                         <div class="comment-header">
                             <span class="comment-author">User #@c.UserId</span>
@@ -250,7 +351,6 @@
 
 <!-- ═══════ MODALS ═══════ -->
 
-@* New Task Modal *@
 <div id="modal-new-task" class="modal-overlay" onclick="closeModalOutside(event,'modal-new-task')">
     <div class="modal">
         <div class="modal-header">
@@ -291,7 +391,6 @@
     </div>
 </div>
 
-@* New Approval Modal *@
 <div id="modal-new-approval" class="modal-overlay" onclick="closeModalOutside(event,'modal-new-approval')">
     <div class="modal">
         <div class="modal-header">
@@ -318,7 +417,6 @@
     </div>
 </div>
 
-@* Upload File Modal *@
 <div id="modal-upload" class="modal-overlay" onclick="closeModalOutside(event,'modal-upload')">
     <div class="modal">
         <div class="modal-header">
@@ -343,7 +441,6 @@
     </div>
 </div>
 
-@* Change Status Modal *@
 <div id="modal-status" class="modal-overlay" onclick="closeModalOutside(event,'modal-status')">
     <div class="modal modal-sm">
         <div class="modal-header">
@@ -370,5 +467,26 @@
                 <button type="submit" class="btn-primary">Update</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Delete Project Modal -->
+<div id="modal-delete-project" class="modal-overlay" onclick="closeModalOutside(event,'modal-delete-project')">
+    <div class="modal modal-sm">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-triangle-exclamation" style="color:var(--danger)"></i> Delete Project</h3>
+            <button class="modal-close" onclick="closeModal('modal-delete-project')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <p class="confirm-text">Are you sure you want to delete <strong>"@Model.Project.Name"</strong>?</p>
+            <p class="confirm-sub">All tasks, files, comments and approvals in this project will be permanently removed. This cannot be undone.</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-ghost" onclick="closeModal('modal-delete-project')">Cancel</button>
+            <form method="post" asp-controller="Projects" asp-action="Delete" class="inline-form">
+                <input type="hidden" name="id" value="@Model.Project.Id" />
+                <button type="submit" class="btn-danger"><i class="fa-solid fa-trash"></i> Delete Project</button>
+            </form>
+        </div>
     </div>
 </div>

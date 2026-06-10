@@ -14,6 +14,6 @@ public class CommentsController : Controller
     public async Task<IActionResult> Create(int projectId, string message)
     {
         await _api.CreateCommentAsync(projectId, message);
-        return RedirectToAction("Detail", "Projects", new { id = projectId });
+        return RedirectToAction("Detail", "Projects", new { id = projectId, tab = "comments" });
     }
 }

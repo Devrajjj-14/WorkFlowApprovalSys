@@ -17,17 +17,14 @@ public class CommentService : ICommentService
         _logger = logger;
     }
 
+    // ── Project Comments ──────────────────────────────────────────────────
     public async Task<CommentResponse> CreateAsync(CommentCreateRequest request, int userId)
     {
-        _logger.LogInformation(
-            "Creating comment on project {ProjectId} by user {UserId}",
-            request.ProjectId,
-            userId);
+        _logger.LogInformation("Creating comment on project {ProjectId} by user {UserId}", request.ProjectId, userId);
+
         var projectExists = await _context.Projects.AnyAsync(p => p.Id == request.ProjectId);
         if (!projectExists)
-        {
             throw new InvalidOperationException("Project not found.");
-        }
 
         var comment = new Comment
         {
@@ -60,15 +57,62 @@ public class CommentService : ICommentService
         return comments.Select(MapToResponse).ToList();
     }
 
-    private static CommentResponse MapToResponse(Comment comment)
+    // ── Task Comments ─────────────────────────────────────────────────────
+    public async Task<TaskCommentResponse> CreateTaskCommentAsync(TaskCommentCreateRequest request, int userId)
     {
-        return new CommentResponse
+        _logger.LogInformation("Creating task comment on task {TaskId} by user {UserId}", request.TaskId, userId);
+
+        var taskExists = await _context.Tasks.AnyAsync(t => t.Id == request.TaskId);
+        if (!taskExists)
+            throw new InvalidOperationException("Task not found.");
+
+        var comment = new TaskComment
         {
-            Id = comment.Id,
-            ProjectId = comment.ProjectId,
-            UserId = comment.UserId,
-            Message = comment.Message,
-            CreatedAt = comment.CreatedAt
+            TaskId = request.TaskId,
+            UserId = userId,
+            Message = request.Message,
+            CreatedAt = DateTime.UtcNow
         };
+
+        _context.TaskComments.Add(comment);
+        await _context.SaveChangesAsync();
+
+        var saved = await _context.TaskComments
+            .Include(c => c.User)
+            .FirstAsync(c => c.Id == comment.Id);
+
+        _logger.LogInformation("Task comment {CommentId} created successfully", saved.Id);
+        return MapToTaskCommentResponse(saved);
     }
+
+    public async Task<List<TaskCommentResponse>> GetByTaskIdAsync(int taskId)
+    {
+        _logger.LogDebug("Fetching comments for task {TaskId}", taskId);
+        var comments = await _context.TaskComments
+            .Include(c => c.User)
+            .Where(c => c.TaskId == taskId)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+
+        return comments.Select(MapToTaskCommentResponse).ToList();
+    }
+
+    // ── Mappers ───────────────────────────────────────────────────────────
+    private static CommentResponse MapToResponse(Comment comment) => new()
+    {
+        Id = comment.Id,
+        ProjectId = comment.ProjectId,
+        UserId = comment.UserId,
+        Message = comment.Message,
+        CreatedAt = comment.CreatedAt
+    };
+
+    private static TaskCommentResponse MapToTaskCommentResponse(TaskComment comment) => new()
+    {
+        Id = comment.Id,
+        TaskId = comment.TaskId,
+        UserId = comment.UserId,
+        Message = comment.Message,
+        CreatedAt = comment.CreatedAt
+    };
 }

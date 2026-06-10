@@ -24,6 +24,16 @@ public class TasksController : Controller
     public async Task<IActionResult> UpdateStatus(int id, string status, int projectId)
     {
         await _api.UpdateTaskStatusAsync(id, status);
-        return RedirectToAction("Detail", "Projects", new { id = projectId });
+        return RedirectToAction("Detail", "Projects", new { id = projectId, tab = "tasks" });
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Admin,Manager")]
+    public async Task<IActionResult> Delete(int id, int projectId)
+    {
+        var (success, error) = await _api.DeleteTaskAsync(id);
+        if (!success) TempData["Error"] = error ?? "Could not delete task.";
+        else TempData["Success"] = "Task deleted.";
+        return RedirectToAction("Detail", "Projects", new { id = projectId, tab = "tasks" });
     }
 }

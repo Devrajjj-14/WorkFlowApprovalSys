@@ -8,4 +8,5 @@ public interface IProjectService
     Task<List<ProjectResponse>> GetAllAsync();
     Task<ProjectResponse?> GetByIdAsync(int id);
     Task<ProjectResponse?> UpdateStatusAsync(int id, ProjectUpdateStatusRequest request);
+    Task<bool> DeleteAsync(int id);
 }

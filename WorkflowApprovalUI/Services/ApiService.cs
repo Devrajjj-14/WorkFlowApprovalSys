@@ -85,6 +85,14 @@ public class ApiService
         return await ParseAsync<ProjectResponse>(res);
     }
 
+    public async Task<(bool success, string? error)> DeleteProjectAsync(int id)
+    {
+        var res = await CreateClient().DeleteAsync($"/api/projects/{id}");
+        if (res.IsSuccessStatusCode) return (true, null);
+        var (_, error) = await ParseAsync<object>(res);
+        return (false, error);
+    }
+
     // ── Tasks ─────────────────────────────────────────────────────────────
     public async Task<List<TaskResponse>> GetTasksAsync(int projectId)
     {
@@ -108,6 +116,14 @@ public class ApiService
         var body = JsonContent(new { status });
         var res = await CreateClient().PutAsync($"/api/tasks/{id}/status", body);
         return await ParseAsync<TaskResponse>(res);
+    }
+
+    public async Task<(bool success, string? error)> DeleteTaskAsync(int id)
+    {
+        var res = await CreateClient().DeleteAsync($"/api/tasks/{id}");
+        if (res.IsSuccessStatusCode) return (true, null);
+        var (_, error) = await ParseAsync<object>(res);
+        return (false, error);
     }
 
     // ── Approvals ─────────────────────────────────────────────────────────
@@ -159,6 +175,21 @@ public class ApiService
         var body = JsonContent(new { projectId, message });
         var res = await CreateClient().PostAsync("/api/comments", body);
         return await ParseAsync<CommentResponse>(res);
+    }
+
+    // ── Task Comments ─────────────────────────────────────────────────────
+    public async Task<List<TaskCommentResponse>> GetTaskCommentsAsync(int taskId)
+    {
+        var res = await CreateClient().GetAsync($"/api/tasks/{taskId}/comments");
+        var (data, _) = await ParseAsync<List<TaskCommentResponse>>(res);
+        return data ?? new();
+    }
+
+    public async Task<(TaskCommentResponse? data, string? error)> CreateTaskCommentAsync(int taskId, string message)
+    {
+        var body = JsonContent(new { taskId, message });
+        var res = await CreateClient().PostAsync("/api/comments/task", body);
+        return await ParseAsync<TaskCommentResponse>(res);
     }
 
     // ── Files ─────────────────────────────────────────────────────────────

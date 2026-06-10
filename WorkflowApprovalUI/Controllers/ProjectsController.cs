@@ -43,13 +43,21 @@ public class ProjectsController : Controller
         var comments  = await _api.GetCommentsAsync(id);
         var files     = await _api.GetFilesAsync(id);
 
+        // Fetch task comments for every task in parallel
+        var taskCommentTasks = tasks.Select(t => _api.GetTaskCommentsAsync(t.Id));
+        var taskCommentResults = await Task.WhenAll(taskCommentTasks);
+        var taskComments = tasks
+            .Select((t, i) => (t.Id, taskCommentResults[i]))
+            .ToDictionary(x => x.Id, x => x.Item2);
+
         var vm = new ProjectDetailViewModel
         {
-            Project   = project,
-            Tasks     = tasks,
-            Approvals = approvals,
-            Comments  = comments,
-            Files     = files
+            Project      = project,
+            Tasks        = tasks,
+            Approvals    = approvals,
+            Comments     = comments,
+            Files        = files,
+            TaskComments = taskComments
         };
         return View(vm);
     }
@@ -60,5 +68,17 @@ public class ProjectsController : Controller
     {
         await _api.UpdateProjectStatusAsync(id, status);
         return RedirectToAction(nameof(Detail), new { id });
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var (success, error) = await _api.DeleteProjectAsync(id);
+        if (!success)
+            TempData["Error"] = error ?? "Could not delete project.";
+        else
+            TempData["Success"] = "Project deleted successfully.";
+        return RedirectToAction(nameof(Index));
     }
 }

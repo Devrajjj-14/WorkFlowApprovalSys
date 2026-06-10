@@ -16,4 +16,5 @@ public class WorkflowTask
     public Project Project { get; set; } = null!;
     public User AssignedToUser { get; set; } = null!;
     public User AssignedByUser { get; set; } = null!;
+    public ICollection<TaskComment> TaskComments { get; set; } = new List<TaskComment>();
 }

@@ -18,13 +18,13 @@ public class CommentsController : ControllerBase
         _commentService = commentService;
     }
 
+    // ── Project Comments ──────────────────────────────────────────────────
     [HttpPost]
     public async Task<ActionResult<CommentResponse>> Create([FromBody] CommentCreateRequest request)
     {
         try
         {
-            var userId = GetCurrentUserId();
-            var result = await _commentService.CreateAsync(request, userId);
+            var result = await _commentService.CreateAsync(request, GetCurrentUserId());
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -37,6 +37,28 @@ public class CommentsController : ControllerBase
     public async Task<ActionResult<List<CommentResponse>>> GetByProject(int projectId)
     {
         var result = await _commentService.GetByProjectIdAsync(projectId);
+        return Ok(result);
+    }
+
+    // ── Task Comments ─────────────────────────────────────────────────────
+    [HttpPost("task")]
+    public async Task<ActionResult<TaskCommentResponse>> CreateTaskComment([FromBody] TaskCommentCreateRequest request)
+    {
+        try
+        {
+            var result = await _commentService.CreateTaskCommentAsync(request, GetCurrentUserId());
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("/api/tasks/{taskId}/comments")]
+    public async Task<ActionResult<List<TaskCommentResponse>>> GetByTask(int taskId)
+    {
+        var result = await _commentService.GetByTaskIdAsync(taskId);
         return Ok(result);
     }
 

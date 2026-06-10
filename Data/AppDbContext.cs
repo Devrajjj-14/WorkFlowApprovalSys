@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<WorkflowTask> Tasks => Set<WorkflowTask>();
     public DbSet<UploadedFile> UploadedFiles => Set<UploadedFile>();
     public DbSet<Comment> Comments => Set<Comment>();
+    public DbSet<TaskComment> TaskComments => Set<TaskComment>();
     public DbSet<Approval> Approvals => Set<Approval>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -74,6 +75,18 @@ public class AppDbContext : DbContext
             entity.HasOne(c => c.User)
                 .WithMany(u => u.Comments)
                 .HasForeignKey(c => c.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<TaskComment>(entity =>
+        {
+            entity.HasOne(tc => tc.Task)
+                .WithMany(t => t.TaskComments)
+                .HasForeignKey(tc => tc.TaskId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(tc => tc.User)
+                .WithMany(u => u.TaskComments)
+                .HasForeignKey(tc => tc.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

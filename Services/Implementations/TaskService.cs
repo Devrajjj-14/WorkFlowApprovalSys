@@ -83,20 +83,26 @@ public class TaskService : ITaskService
             .Include(t => t.AssignedByUser)
             .FirstOrDefaultAsync(t => t.Id == id);
 
-        if (task == null)
-        {
-            return null;
-        }
+        if (task == null) return null;
 
         if (Enum.TryParse<TaskStatusEnum>(request.Status, out var status))
-        {
             task.Status = status;
-        }
 
         task.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
-
         return MapToResponse(task);
+    }
+
+    public async Task<bool> DeleteAsync(int id)
+    {
+        _logger.LogInformation("Deleting task {TaskId}", id);
+        var task = await _context.Tasks.FirstOrDefaultAsync(t => t.Id == id);
+        if (task == null) return false;
+
+        _context.Tasks.Remove(task);
+        await _context.SaveChangesAsync();
+        _logger.LogInformation("Task {TaskId} deleted successfully", id);
+        return true;
     }
 
     private static TaskResponse MapToResponse(WorkflowTask task)

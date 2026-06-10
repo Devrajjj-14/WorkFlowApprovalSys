@@ -51,11 +51,18 @@ public class ProjectsController : ControllerBase
     {
         var result = await _projectService.UpdateStatusAsync(id, request);
         if (result == null)
-        {
             return NotFound(new { message = "Project not found." });
-        }
-
         return Ok(result);
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var deleted = await _projectService.DeleteAsync(id);
+        if (!deleted)
+            return NotFound(new { message = "Project not found." });
+        return NoContent();
     }
 
     private int GetCurrentUserId()

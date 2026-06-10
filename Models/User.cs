@@ -14,6 +14,7 @@ public class User
     public ICollection<WorkflowTask> AssignedByTasks { get; set; } = new List<WorkflowTask>();
     public ICollection<UploadedFile> UploadedFiles { get; set; } = new List<UploadedFile>();
     public ICollection<Comment> Comments { get; set; } = new List<Comment>();
+    public ICollection<TaskComment> TaskComments { get; set; } = new List<TaskComment>();
     public ICollection<Approval> RequestedApprovals { get; set; } = new List<Approval>();
     public ICollection<Approval> ReviewedApprovals { get; set; } = new List<Approval>();
 }

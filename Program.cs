@@ -70,6 +70,15 @@ try
             opts.JsonSerializerOptions.Converters.Add(
                 new System.Text.Json.Serialization.JsonStringEnumConverter());
         });
+
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("FrontendPolicy", policy =>
+            policy.WithOrigins("http://localhost:5001")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod()
+                  .AllowCredentials());
+    });
     builder.Services.AddEndpointsApiExplorer();
 
     builder.Services.AddSwaggerGen(options =>
@@ -110,6 +119,7 @@ try
     var app = builder.Build();
 
     app.UseCustomMiddleware();
+    app.UseCors("FrontendPolicy");
 
     app.UseSwagger();
     app.UseSwaggerUI(c =>

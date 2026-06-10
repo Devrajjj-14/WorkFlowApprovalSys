@@ -46,11 +46,18 @@ public class TasksController : ControllerBase
     {
         var result = await _taskService.UpdateStatusAsync(id, request);
         if (result == null)
-        {
             return NotFound(new { message = "Task not found." });
-        }
-
         return Ok(result);
+    }
+
+    [Authorize(Roles = "Admin,Manager")]
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var deleted = await _taskService.DeleteAsync(id);
+        if (!deleted)
+            return NotFound(new { message = "Task not found." });
+        return NoContent();
     }
 
     private int GetCurrentUserId()

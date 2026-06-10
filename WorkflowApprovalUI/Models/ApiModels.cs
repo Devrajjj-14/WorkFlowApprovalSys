@@ -97,6 +97,16 @@ public class CommentResponse
     public DateTime CreatedAt { get; set; }
 }
 
+// ── Task Comments ─────────────────────────────────────
+public class TaskCommentResponse
+{
+    public int Id { get; set; }
+    public int TaskId { get; set; }
+    public int UserId { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+}
+
 // ── Files ─────────────────────────────────────────────
 public class FileListResponse
 {
@@ -115,4 +125,6 @@ public class ProjectDetailViewModel
     public List<ApprovalResponse> Approvals { get; set; } = new();
     public List<CommentResponse> Comments { get; set; } = new();
     public List<FileListResponse> Files { get; set; } = new();
+    // taskId -> comments
+    public Dictionary<int, List<TaskCommentResponse>> TaskComments { get; set; } = new();
 }
