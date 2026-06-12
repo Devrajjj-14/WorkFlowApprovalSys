@@ -18,6 +18,12 @@ using Microsoft.OpenApi.Models;
 // Without this: Log.Logger, Log.Information(), LoggerConfiguration don't exist — Serilog is unavailable
 using Serilog;
 
+// Without this: TelemetryConverter.Traces used in the Application Insights sink doesn't compile
+using Serilog.Sinks.ApplicationInsights.TelemetryConverters;
+
+// Without this: TelemetryConfiguration lives here — needed to pass the key to the AI sink
+using Microsoft.ApplicationInsights.Extensibility;
+
 // Without this: AppDbContext class is unknown here — AddDbContext<AppDbContext> fails to compile
 using WorkflowApprovalApi.Data;
 
@@ -39,6 +45,9 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()           // write startup logs to the terminal only
     .CreateBootstrapLogger();    // lightweight mode — full config loads later from appsettings.json
 
+// Application Insights instrumentation key will be read from configuration below
+string? instrumentationKey = null;
+
 // ── Top-Level Try/Catch — wraps the entire application lifecycle ──────────────
 // Without this: any unhandled startup or runtime crash exits silently with no log
 try
@@ -52,14 +61,59 @@ try
     var builder = WebApplication.CreateBuilder(args);
 
     // ── Serilog Full Setup ────────────────────────────────────────────────────
-    // Replaces .NET's basic logger with Serilog as the full logging engine
-    // ReadFrom.Configuration reads the "Serilog" section in appsettings.json
-    // That section points to: logs/Custom Serilogger logs.log
-    // Without this block: Serilog is not used — logs only go to console, never to your custom log file
-    builder.Host.UseSerilog((context, services, configuration) => configuration
-        .ReadFrom.Configuration(context.Configuration)   // reads appsettings.json Serilog section
-        .ReadFrom.Services(services)                     // allows Serilog to use DI-registered services
-        .Enrich.FromLogContext());                        // adds contextual info (request ID etc.) to every log
+    // The file sink is configured HERE in code — not in appsettings.json — because we need to
+    // build the filename using the ACTUAL current date (e.g. "custom logger 2026-06-12.log").
+    // If we put the path in appsettings.json Serilog treats {Date} as a literal string,
+    // which is exactly what created the broken file called "custom logger {Date".
+    //
+    // DateTime.Now.ToString("yyyy-MM-dd") resolves RIGHT NOW at startup, so today's date
+    // is permanently written into the filename for this process lifetime.
+    // At midnight the app is typically restarted (or you can set rollingInterval below),
+    // which triggers this line again and produces a new file for the new date.
+    instrumentationKey = builder.Configuration["ApplicationInsights:InstrumentationKey"];
+    var todayLogFile = $"logs/custom logger {DateTime.Now:yyyy-MM-dd}.log";
+
+    builder.Host.UseSerilog((context, services, configuration) =>
+    {
+        configuration
+            .ReadFrom.Configuration(context.Configuration)  // loads Console sink + MinimumLevel from appsettings.json
+            .ReadFrom.Services(services)                    // lets Serilog use DI-registered enrichers
+            .Enrich.FromLogContext()                        // adds contextual info (request ID, user etc.) to every log
+            // ── File Sink ────────────────────────────────────────────────────
+            // Writes every log entry to  logs/custom logger 2026-06-12.log  (or whatever today is)
+            // rollingInterval: Day  → Serilog will start a NEW file the next day automatically
+            //                         even if the app keeps running past midnight
+            // retainedFileCountLimit: 30  → deletes files older than 30 days so disk never fills up
+            // outputTemplate  → the exact text format written inside the file
+            .WriteTo.File(
+                path: todayLogFile, //this is dor today's actual date
+                rollingInterval: RollingInterval.Day, // This is for new to be created for tommorow
+                retainedFileCountLimit: 30, // keeps all the logs for 1 month then it start to delete
+                outputTemplate: "{Timestamp:yyyy-MM-dd} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"
+            );
+
+        // ── Application Insights Sink ─────────────────────────────────────────
+        // If an InstrumentationKey is set in appsettings.json, every Serilog log entry is
+        // ALSO forwarded to Azure Application Insights as a Trace telemetry item.
+        // This means you see the same logs in the Azure portal under  Logs → traces
+        // and can query them, set alerts, and build dashboards — without changing any
+        // controller or service code at all.
+        // Without this block: logs stay local only; nothing reaches the cloud.
+        if (!string.IsNullOrWhiteSpace(instrumentationKey) &&
+            instrumentationKey != "YOUR_INSTRUMENTATION_KEY_HERE")
+        {
+            var telemetryConfig = new TelemetryConfiguration
+            {
+                InstrumentationKey = instrumentationKey
+            };
+             // This line adds Application Insights as a destination for logs
+            // Exactly like WriteTo.File() sends logs to a file, this sends them to Azure
+            configuration.WriteTo.ApplicationInsights(
+                telemetryConfiguration: telemetryConfig,
+                telemetryConverter: TelemetryConverter.Traces
+            );
+        }
+    });
 
     // ── Database Connection ───────────────────────────────────────────────────
     // Reads "ConnectionStrings:DefaultConnection" from appsettings.json
@@ -170,6 +224,13 @@ try
     // Authentication = who are you. Authorization = what can you do. These are separate.
     // Without this: role restrictions don't work — a Client could delete projects
     builder.Services.AddAuthorization();
+
+    // ── Application Insights Integration ──────────────────────────────────────
+    // Registers Application Insights services for telemetry collection
+    // This enables monitoring of requests, dependencies, exceptions, and performance metrics
+    // Without this: Application Insights cannot track application behavior and performance
+    // Note: Use AddApplicationInsightsTelemetry() to auto-discover InstrumentationKey from config
+    builder.Services.AddApplicationInsightsTelemetry();
 
     // Registers all API controllers and adds JsonStringEnumConverter globally
     // JsonStringEnumConverter allows enums to be sent as strings ("Designer") not just integers (2)
