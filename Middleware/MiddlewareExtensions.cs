@@ -6,6 +6,7 @@ public static class MiddlewareExtensions
     {
         app.UseMiddleware<ExceptionHandlingMiddleware>();
         app.UseMiddleware<RequestLoggingMiddleware>();
+        app.UseMiddleware<ServerTimingMiddleware>();
         return app;
     }
 }

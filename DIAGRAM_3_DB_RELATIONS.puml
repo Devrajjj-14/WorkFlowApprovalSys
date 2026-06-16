@@ -1,0 +1,118 @@
+@startuml DB_Relations
+allowmixing
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Arial
+skinparam shadowing false
+
+skinparam class {
+    BackgroundColor #FEF9C3
+    BorderColor #CA8A04
+    HeaderBackgroundColor #FDE68A
+}
+
+package "Models/ + Data/AppDbContext.cs" {
+
+    class User {
+        +int Id
+        +string FullName
+        +string Email (unique)
+        +string PasswordHash
+        +UserRole Role
+        +DateTime CreatedAt
+    }
+
+    class Project {
+        +int Id
+        +string Name
+        +string Description
+        +ProjectStatus Status
+        +int CreatedByUserId (FK)
+        +DateTime CreatedAt
+        +DateTime UpdatedAt
+    }
+
+    class WorkflowTask {
+        +int Id
+        +int ProjectId (FK)
+        +string Title
+        +string Description
+        +TaskStatus Status
+        +Priority Priority
+        +int AssignedToUserId (FK)
+        +int AssignedByUserId (FK)
+        +DateTime CreatedAt
+        +DateTime UpdatedAt
+    }
+
+    class UploadedFile {
+        +int Id
+        +int ProjectId (FK)
+        +string FileName
+        +string FilePath
+        +int VersionNumber (auto)
+        +int UploadedByUserId (FK)
+        +DateTime UploadedAt
+    }
+
+    class Comment {
+        +int Id
+        +int ProjectId (FK)
+        +int UserId (FK)
+        +string Message
+        +DateTime CreatedAt
+    }
+
+    class Approval {
+        +int Id
+        +int ProjectId (FK)
+        +int? FileId (FK nullable)
+        +ApprovalStatus Status
+        +string Remarks
+        +int RequestedByUserId (FK)
+        +int? ReviewedByUserId (FK nullable)
+        +DateTime RequestedAt
+        +DateTime? ReviewedAt
+    }
+
+    class Enums {
+        UserRole: Admin,Manager,Designer,Reviewer,Client
+        ProjectStatus: Draft,InProgress,InReview,Approved,Rejected,Completed,Cancelled
+        TaskStatus: Pending,InProgress,Completed,Blocked
+        ApprovalStatus: Pending,Approved,Rejected,ChangesRequested
+        Priority: Low,Medium,High
+    }
+}
+
+database "MySQL\nworkflow_approval_db" as MySQL
+
+database "wwwroot/uploads/\n{GUID}.ext" as FileStore
+
+database "logs/\nworkflow-api-{date}.log\nrolling daily, 14 days kept" as Logs
+
+' Relationships
+User "1" --> "many" Project : CreatedByUserId\nON DELETE RESTRICT
+User "1" --> "many" WorkflowTask : AssignedToUserId\nON DELETE RESTRICT
+User "1" --> "many" WorkflowTask : AssignedByUserId\nON DELETE RESTRICT
+User "1" --> "many" Comment : UserId\nON DELETE RESTRICT
+User "1" --> "many" Approval : RequestedByUserId\nON DELETE RESTRICT
+User "1" --> "many" Approval : ReviewedByUserId\nON DELETE RESTRICT
+User "1" --> "many" UploadedFile : UploadedByUserId\nON DELETE RESTRICT
+
+Project "1" --> "many" WorkflowTask : ProjectId\nON DELETE CASCADE
+Project "1" --> "many" UploadedFile : ProjectId\nON DELETE CASCADE
+Project "1" --> "many" Comment : ProjectId\nON DELETE CASCADE
+Project "1" --> "many" Approval : ProjectId\nON DELETE CASCADE
+
+UploadedFile "1" --> "many" Approval : FileId\nON DELETE SET NULL
+
+' To DB
+Project --> MySQL : EF Core
+WorkflowTask --> MySQL : EF Core
+UploadedFile --> MySQL : EF Core
+Comment --> MySQL : EF Core
+Approval --> MySQL : EF Core
+User --> MySQL : EF Core
+
+UploadedFile --> FileStore : physical file\nsaved here
+
+@enduml

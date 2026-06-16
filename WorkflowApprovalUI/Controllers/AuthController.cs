@@ -20,12 +20,16 @@ public class AuthController : Controller
     [HttpPost]
     public async Task<IActionResult> Login(LoginViewModel vm)
     {
-        var (data, error) = await _api.LoginAsync(vm.Email, vm.Password);
+        var (data, error, responseTime) = await _api.LoginAsync(vm.Email, vm.Password);
         if (data == null)
         {
             ViewBag.Error = error ?? "Login failed.";
             return View(vm);
         }
+
+        // Store response time from ServerTimingMiddleware to display after redirect
+        if (responseTime != null)
+            TempData["ServerTime"] = $"Login processed in {responseTime} by the server.";
 
         HttpContext.Session.SetString("JwtToken", data.Token);
         HttpContext.Session.SetString("UserName", data.FullName);

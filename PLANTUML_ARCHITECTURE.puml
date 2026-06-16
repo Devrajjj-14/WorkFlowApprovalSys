@@ -1,0 +1,223 @@
+@startuml WorkFlowApprovalSys Architecture
+
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam ArrowColor #333333
+skinparam shadowing false
+
+skinparam package {
+    BackgroundColor #EEF2FF
+    BorderColor #6366F1
+    FontColor #1E1B4B
+    FontStyle bold
+}
+
+skinparam component {
+    BackgroundColor #FFFFFF
+    BorderColor #6366F1
+}
+
+skinparam database {
+    BackgroundColor #FEF9C3
+    BorderColor #CA8A04
+}
+
+skinparam actor {
+    BackgroundColor #DBEAFE
+    BorderColor #2563EB
+}
+
+' ─── ACTORS ───────────────────────────────────────────────
+actor "Browser\n(User)" as Browser #DBEAFE
+
+' ─── UI PROJECT ───────────────────────────────────────────
+package "WorkflowApprovalUI  (localhost:5001)\nFolder: WorkflowApprovalUI/" {
+
+    package "Views/Auth/" {
+        component "Login.cshtml\n@model LoginViewModel\nViewBag.Error\nTempData[Success]" as LoginView
+        component "Register.cshtml\n@model RegisterViewModel\nViewBag.Error" as RegisterView
+    }
+
+    package "Views/Projects/" {
+        component "Index.cshtml\n@model List<ProjectResponse>\nTempData[Success/Error]" as IndexView
+        component "Detail.cshtml\n@model ProjectDetailViewModel\nSession[UserRole]\nTabs: Tasks|Approvals|Files|Comments" as DetailView
+    }
+
+    package "Controllers/ (WorkflowApprovalUI/Controllers/)" {
+        component "AuthController\nLogin()\nRegister()\nLogout()\nSignInAsync(Cookie)\nSession.Set(JwtToken)" as UIAuthCtrl
+        component "ProjectsController\nIndex()\nDetail(int id)\nCreate()\nUpdateStatus()" as UIProjCtrl
+        component "TasksController\n[Authorize(Admin,Manager)]\nCreate(vm)\nUpdateStatus()" as UITaskCtrl
+        component "ApprovalsController\nCreate()\nApprove()\nReject()\nRequestChanges()" as UIApprCtrl
+        component "FilesController\nUpload()" as UIFileCtrl
+        component "CommentsController\nCreate()" as UICommCtrl
+        component "HomeController\nredirects → Projects/Index" as UIHomeCtrl
+    }
+
+    package "Services/ (WorkflowApprovalUI/Services/)" {
+        component "ApiService.cs\nCreateClient()\n→ reads JWT from Session\n→ sets Bearer token header\n\nLoginAsync()       POST /api/auth/login\nRegisterAsync()    POST /api/auth/register\nGetProjectsAsync() GET  /api/projects\nGetProjectAsync()  GET  /api/projects/{id}\nCreateProjectAsync() POST /api/projects\nGetTasksAsync()    GET  /api/projects/{id}/tasks\nCreateTaskAsync()  POST /api/tasks\nGetApprovalsAsync() GET /api/projects/{id}/approvals\nCreateApprovalAsync() POST /api/approvals\nApproveAsync()     PUT  /api/approvals/{id}/approve\nRejectAsync()      PUT  /api/approvals/{id}/reject\nGetCommentsAsync() GET  /api/projects/{id}/comments\nCreateCommentAsync() POST /api/comments\nGetFilesAsync()    GET  /api/projects/{id}/files\nUploadFileAsync()  POST /api/projects/{id}/files/upload" as ApiService
+    }
+
+    package "Program.cs (UI)" {
+        component "AddAuthentication(Cookie)\nAddSession()\nAddHttpClient(API → localhost:5000)\nUseSession()\nUseAuthentication()\nUseAuthorization()" as UIProgram
+    }
+}
+
+' ─── API PROJECT ──────────────────────────────────────────
+package "WorkflowApprovalApi  (localhost:5000)\nFolder: (root)/" {
+
+    package "Program.cs (API)" {
+        component "Middleware Pipeline:\n1. ExceptionHandlingMiddleware\n2. RequestLoggingMiddleware\n3. UseSwagger()\n4. UseStaticFiles()\n5. UseAuthentication() ← validates JWT\n6. UseAuthorization()  ← checks [Authorize]\n7. MapControllers()\n\nAddAuthentication(JwtBearer)\nAddJwtBearer(Key, Issuer, Audience, Expiry)\nAddScoped<IAuthService, AuthService>\nAddScoped<IProjectService, ProjectService>\nAddScoped<ITaskService, TaskService>\nAddScoped<IApprovalService, ApprovalService>\nAddScoped<ICommentService, CommentService>\nAddScoped<IFileService, FileService>\nAddScoped<TokenService>" as APIProgram
+    }
+
+    package "Middleware/ (Folder: Middleware/)" {
+        component "ExceptionHandlingMiddleware\nInvalidOperationException  → 400\nUnauthorizedAccessException→ 401\nKeyNotFoundException       → 404\nOther                      → 500" as ExMiddleware
+        component "RequestLoggingMiddleware\nlogs: Method+Path+StatusCode+ElapsedMs" as LogMiddleware
+        component "MiddlewareExtensions\nUseCustomMiddleware()\n→ registers both above" as MidExt
+    }
+
+    package "Controllers/ (Folder: Controllers/)" {
+        component "AuthController\n[AllowAnonymous]\nPOST /api/auth/register\nPOST /api/auth/login\n→ AuthService" as AuthCtrl
+        component "ProjectsController\n[Authorize]\nGET  /api/projects\nGET  /api/projects/{id}\nPOST /api/projects\nPUT  /api/projects/{id}/status\n[Admin,Manager]\nGetCurrentUserId() ← JWT claim\n→ ProjectService" as ProjCtrl
+        component "TasksController\n[Authorize]\nPOST /api/tasks [Admin,Manager]\nGET  /api/projects/{id}/tasks\nPUT  /api/tasks/{id}/status\nGetCurrentUserId() ← AssignedByUserId\n→ TaskService" as TaskCtrl
+        component "ApprovalsController\n[Authorize]\nPOST /api/approvals [Admin,Manager,Designer]\nGET  /api/projects/{id}/approvals\nPUT  /api/approvals/{id}/approve\nPUT  /api/approvals/{id}/reject     [Admin,Manager\nPUT  /api/approvals/{id}/changes-requested  Reviewer,Client]\nGetCurrentUserId() ← JWT claim\n→ ApprovalService" as ApprCtrl
+        component "CommentsController\n[Authorize]\nPOST /api/comments\nGET  /api/projects/{id}/comments\n→ CommentService" as CommCtrl
+        component "FilesController\n[Authorize]\nPOST /api/projects/{id}/files/upload\nGET  /api/projects/{id}/files\nGET  /api/files/{id}/download\n→ FileService" as FileCtrl
+    }
+
+    package "Helpers/ (Folder: Helpers/)" {
+        component "TokenService\nGenerateToken(user)\n→ reads Key,Issuer,Audience,Expiry\n   from appsettings.json\n→ packs claims: userId,email,name,role\n→ signs HMAC-SHA256\n→ returns eyJ... string" as TokenSvc
+    }
+
+    package "Services/Interfaces/ (Folder: Services/Interfaces/)" {
+        component "IAuthService\nIProjectService\nITaskService\nIApprovalService\nICommentService\nIFileService" as Interfaces
+    }
+
+    package "Services/Implementations/ (Folder: Services/Implementations/)" {
+        component "AuthService\nRegisterAsync()\n→ BCrypt.HashPassword()\n→ save User\n→ TokenService.GenerateToken()\nLoginAsync()\n→ BCrypt.Verify()\n→ TokenService.GenerateToken()" as AuthSvc
+        component "ProjectService\nCreateAsync()\nGetAllAsync()\nGetByIdAsync()\nUpdateStatusAsync()\n→ AppDbContext" as ProjSvc
+        component "TaskService\nCreateAsync()\n→ validate ProjectId exists\n→ validate AssignedToUserId exists\n→ save Task\nGetByProjectIdAsync()\nUpdateStatusAsync()\n→ AppDbContext" as TaskSvc
+        component "ApprovalService\nCreateAsync()\n→ validate Project + File\nApproveAsync()\nRejectAsync()\nRequestChangesAsync()\n→ AppDbContext" as ApprSvc
+        component "CommentService\nCreateAsync()\nGetByProjectIdAsync()\n→ AppDbContext" as CommSvc
+        component "FileService\nUploadAsync()\n→ save to wwwroot/uploads/{GUID}.ext\n→ auto-increment VersionNumber\nDownloadAsync()\n→ FileStream\n→ AppDbContext" as FileSvc
+    }
+
+    package "DTOs/ (Folder: DTOs/)" {
+        component "AuthDtos: RegisterRequest, LoginRequest, AuthResponse\nProjectDtos: ProjectCreateRequest, ProjectResponse\nTaskDtos: TaskCreateRequest, TaskResponse, TaskUpdateStatusRequest\nApprovalDtos: ApprovalCreateRequest, ApprovalResponse, ApprovalUpdateRequest\nCommentDtos: CommentCreateRequest, CommentResponse\nFileDtos: FileListResponse" as DTOs
+    }
+
+    package "Models/ (Folder: Models/)" {
+        component "User: Id,FullName,Email,PasswordHash,Role\nProject: Id,Name,Description,Status,CreatedByUserId\nWorkflowTask: Id,ProjectId,Title,Status,Priority,\n              AssignedToUserId,AssignedByUserId\nApproval: Id,ProjectId,FileId(nullable),Status,\n          RequestedByUserId,ReviewedByUserId(nullable)\nComment: Id,ProjectId,UserId,Message,CreatedAt\nUploadedFile: Id,ProjectId,FileName,FilePath,VersionNumber\nEnums: UserRole,ProjectStatus,TaskStatus,ApprovalStatus,Priority" as Models
+    }
+
+    package "Data/ (Folder: Data/)" {
+        component "AppDbContext\nDbSet<User>\nDbSet<Project>\nDbSet<WorkflowTask>\nDbSet<UploadedFile>\nDbSet<Comment>\nDbSet<Approval>\nOnModelCreating()\n→ Fluent API relationships\n→ Cascade/Restrict delete rules" as DbContext
+    }
+}
+
+' ─── DATABASE ─────────────────────────────────────────────
+database "MySQL\nworkflow_approval_db\n\nUsers\nProjects\nTasks\nUploadedFiles\nComments\nApprovals" as MySQL
+
+database "File System\nwwwroot/uploads/\n{GUID}.ext\n\nLogs\nlogs/workflow-api-{date}.log" as FileSystem
+
+package "appsettings.json" {
+    component "ConnectionStrings: DefaultConnection\nJwt: Key, Issuer, Audience, ExpiryMinutes\nSerilog: Console+File sinks\n         rollingInterval: Day\n         retainedFileCountLimit: 14" as AppSettings
+}
+
+' ─── RELATIONS ────────────────────────────────────────────
+
+' Browser ↔ UI
+Browser --> LoginView : opens http://localhost:5001/Auth/Login
+Browser --> IndexView : Cookie auth ✅
+Browser --> DetailView : Cookie auth ✅
+
+' Views → Controllers
+LoginView --> UIAuthCtrl : POST /Auth/Login\nasp-controller=Auth asp-action=Login
+RegisterView --> UIAuthCtrl : POST /Auth/Register
+IndexView --> UIProjCtrl : GET /Projects/Index
+IndexView --> UIProjCtrl : POST /Projects/Create
+DetailView --> UITaskCtrl : POST /Tasks/Create\nasp-controller=Tasks asp-action=Create
+DetailView --> UIApprCtrl : POST /Approvals/Create|Approve|Reject
+DetailView --> UIFileCtrl : POST /Files/Upload
+DetailView --> UICommCtrl : POST /Comments/Create
+DetailView --> UIProjCtrl : POST /Projects/UpdateStatus
+
+' UI Controllers → ApiService
+UIAuthCtrl --> ApiService : LoginAsync()\nRegisterAsync()
+UIProjCtrl --> ApiService : GetProjectsAsync()\nGetProjectAsync(id)\nCreateProjectAsync()\nUpdateProjectStatusAsync()
+UITaskCtrl --> ApiService : CreateTaskAsync()\nUpdateTaskStatusAsync()
+UIApprCtrl --> ApiService : CreateApprovalAsync()\nApproveAsync()\nRejectAsync()
+UIFileCtrl --> ApiService : UploadFileAsync()
+UICommCtrl --> ApiService : CreateCommentAsync()
+
+' ApiService → API (HTTP calls with Bearer token)
+ApiService --> AuthCtrl : POST /api/auth/login\nPOST /api/auth/register\n(no token needed)
+ApiService --> ProjCtrl : GET/POST /api/projects\nBearer: eyJ...
+ApiService --> TaskCtrl : POST /api/tasks\nGET /api/projects/{id}/tasks\nBearer: eyJ...
+ApiService --> ApprCtrl : POST/PUT /api/approvals\nBearer: eyJ...
+ApiService --> CommCtrl : POST/GET /api/comments\nBearer: eyJ...
+ApiService --> FileCtrl : POST/GET /api/files\nBearer: eyJ...
+
+' Program.cs wires up middleware
+APIProgram --> ExMiddleware : registers
+APIProgram --> LogMiddleware : registers
+APIProgram --> TokenSvc : AddScoped
+APIProgram --> AppSettings : reads Jwt settings
+
+' Middleware chain
+ExMiddleware --> LogMiddleware : next()
+LogMiddleware --> AuthCtrl : next() after logging
+
+' Controllers → Services
+AuthCtrl --> AuthSvc : RegisterAsync()\nLoginAsync()
+ProjCtrl --> ProjSvc : GetAllAsync()\nGetByIdAsync()\nCreateAsync()\nUpdateStatusAsync()
+TaskCtrl --> TaskSvc : CreateAsync()\nGetByProjectIdAsync()\nUpdateStatusAsync()
+ApprCtrl --> ApprSvc : CreateAsync()\nApproveAsync()\nRejectAsync()
+CommCtrl --> CommSvc : CreateAsync()\nGetByProjectIdAsync()
+FileCtrl --> FileSvc : UploadAsync()\nGetByProjectIdAsync()\nDownloadAsync()
+
+' AuthService → TokenService
+AuthSvc --> TokenSvc : GenerateToken(user)
+
+' TokenService → AppSettings
+TokenSvc --> AppSettings : reads Key,Issuer,Audience,ExpiryMinutes
+
+' Services implement Interfaces
+AuthSvc ..|> Interfaces
+ProjSvc ..|> Interfaces
+TaskSvc ..|> Interfaces
+ApprSvc ..|> Interfaces
+CommSvc ..|> Interfaces
+FileSvc ..|> Interfaces
+
+' Services → DTOs + Models
+AuthSvc --> DTOs : RegisterRequest\nLoginRequest\nAuthResponse
+ProjSvc --> DTOs : ProjectCreateRequest\nProjectResponse
+TaskSvc --> DTOs : TaskCreateRequest\nTaskResponse
+ApprSvc --> DTOs : ApprovalCreateRequest\nApprovalResponse
+CommSvc --> DTOs : CommentCreateRequest\nCommentResponse
+FileSvc --> DTOs : FileListResponse
+
+DTOs --> Models : maps to/from
+
+' Services → DbContext
+AuthSvc --> DbContext : Users
+ProjSvc --> DbContext : Projects
+TaskSvc --> DbContext : Tasks
+ApprSvc --> DbContext : Approvals
+CommSvc --> DbContext : Comments
+FileSvc --> DbContext : UploadedFiles
+
+' DbContext → MySQL
+DbContext --> MySQL : EF Core queries\nSELECT / INSERT / UPDATE
+
+' FileService → FileSystem
+FileSvc --> FileSystem : save/read files\nwwwroot/uploads/
+
+' Serilog → FileSystem
+LogMiddleware --> FileSystem : logs/workflow-api-{date}.log
+
+' AppSettings → DbContext
+AppSettings --> DbContext : ConnectionStrings
+
+@enduml

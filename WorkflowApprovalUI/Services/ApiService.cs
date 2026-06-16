@@ -70,12 +70,19 @@ public class ApiService
     // Sends POST /api/auth/login with email and password
     // Uses _factory.CreateClient("API") directly — NOT CreateClient() — because no JWT exists yet at login
     // Without this: the login form has no way to authenticate the user against the backend
-    public async Task<(AuthResponse? data, string? error)> LoginAsync(string email, string password)
+    public async Task<(AuthResponse? data, string? error, string? responseTime)> LoginAsync(string email, string password)
     {
         var client = _factory.CreateClient("API");
         var body = JsonContent(new { email, password });
         var res = await client.PostAsync("/api/auth/login", body);
-        return await ParseAsync<AuthResponse>(res);
+
+        // Read the X-Response-Time header added by our ServerTimingMiddleware
+        var responseTime = res.Headers.TryGetValues("X-Response-Time", out var values)
+            ? values.FirstOrDefault()
+            : null;
+
+        var (data, error) = await ParseAsync<AuthResponse>(res);
+        return (data, error, responseTime);
     }
 
     // Sends POST /api/auth/register with user details

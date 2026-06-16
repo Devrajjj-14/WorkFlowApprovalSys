@@ -1,0 +1,61 @@
+@startuml UI_Flow
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam packageBackgroundColor #EEF2FF
+skinparam packageBorderColor #6366F1
+skinparam componentBackgroundColor #FFFFFF
+skinparam componentBorderColor #6366F1
+
+actor "Browser" as Browser
+
+package "WorkflowApprovalUI (localhost:5001)" {
+
+    package "Views" {
+        component "Login.cshtml\n@model LoginViewModel" as LoginV
+        component "Register.cshtml\n@model RegisterViewModel" as RegV
+        component "Index.cshtml\n@model List<ProjectResponse>" as IndexV
+        component "Detail.cshtml\n@model ProjectDetailViewModel" as DetailV
+    }
+
+    package "Controllers" {
+        component "AuthController\nLogin()\nRegister()\nLogout()\nSignInAsync(Cookie)\nSession.Set(JwtToken,UserRole)" as UIAuth
+        component "ProjectsController\nIndex()\nDetail(int id)\nCreate()\nUpdateStatus()" as UIProj
+        component "TasksController\n[Admin,Manager]\nCreate(vm)\nUpdateStatus()" as UITask
+        component "ApprovalsController\nCreate()\nApprove()\nReject()" as UIAppr
+        component "FilesController\nUpload()" as UIFile
+        component "CommentsController\nCreate()" as UIComm
+    }
+
+    package "Services" {
+        component "ApiService\nCreateClient()\n→ Session.GetString(JwtToken)\n→ Bearer token on every call" as ApiSvc
+    }
+
+    package "Program.cs (UI)" {
+        component "AddAuthentication(Cookie)\nLoginPath=/Auth/Login\nExpiry=2hrs\nAddSession(HttpOnly,Essential)\nAddHttpClient(API→localhost:5000)\nUseSession()\nUseAuthentication()\nUseAuthorization()" as UIProgram
+    }
+}
+
+Browser --> LoginV : http://localhost:5001
+LoginV --> UIAuth : POST asp-action=Login
+RegV --> UIAuth : POST asp-action=Register
+UIAuth --> ApiSvc : LoginAsync()\nRegisterAsync()
+
+IndexV --> UIProj : GET Index
+IndexV --> UIProj : POST Create
+DetailV --> UITask : POST Tasks/Create\nasp-controller=Tasks
+DetailV --> UIAppr : POST Approvals/Create|Approve|Reject
+DetailV --> UIFile : POST Files/Upload
+DetailV --> UIComm : POST Comments/Create
+DetailV --> UIProj : POST Projects/UpdateStatus
+
+UIProj --> ApiSvc : GetProjectsAsync()\nGetProjectAsync(id)\nCreateProjectAsync()
+UITask --> ApiSvc : CreateTaskAsync()
+UIAppr --> ApiSvc : CreateApprovalAsync()\nApproveAsync()\nRejectAsync()
+UIFile --> ApiSvc : UploadFileAsync()
+UIComm --> ApiSvc : CreateCommentAsync()
+
+UIProgram ..> UIAuth : configures
+UIProgram ..> ApiSvc : configures HTTP client
+
+@enduml

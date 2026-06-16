@@ -1,0 +1,77 @@
+@startuml API_Flow
+skinparam backgroundColor #FAFAFA
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam packageBackgroundColor #F0FDF4
+skinparam packageBorderColor #16A34A
+skinparam componentBackgroundColor #FFFFFF
+skinparam componentBorderColor #16A34A
+
+component "ApiService\n(UI side)" as ApiSvc
+
+package "WorkflowApprovalApi (localhost:5000)" {
+
+    package "Middleware Pipeline (Program.cs)" {
+        component "1. ExceptionHandlingMiddleware\n400/401/404/500" as ExMid
+        component "2. RequestLoggingMiddleware\nlogs Method+Path+Status+ms" as LogMid
+        component "3. UseAuthentication()\nreads JWT Bearer header\nvalidates against AddJwtBearer\npopulates HttpContext.User" as UseAuth
+        component "4. UseAuthorization()\nchecks [Authorize]\nchecks [Authorize(Roles=...)]" as UseAuthorize
+    }
+
+    package "Controllers" {
+        component "AuthController\n[AllowAnonymous]\nPOST /api/auth/login\nPOST /api/auth/register" as AuthC
+        component "ProjectsController\n[Authorize]\nGET  /api/projects\nGET  /api/projects/{id}\nPOST /api/projects\nPUT  /api/projects/{id}/status\n[Admin,Manager]" as ProjC
+        component "TasksController\n[Authorize]\nPOST /api/tasks [Admin,Manager]\nGET  /api/projects/{id}/tasks\nPUT  /api/tasks/{id}/status\nGetCurrentUserId()←JWT" as TaskC
+        component "ApprovalsController\n[Authorize]\nPOST /api/approvals [Admin,Manager,Designer]\nGET  /api/projects/{id}/approvals\nPUT  /api/approvals/{id}/approve\nPUT  /api/approvals/{id}/reject\n[Admin,Manager,Reviewer,Client]" as ApprC
+        component "CommentsController\n[Authorize]\nPOST /api/comments\nGET  /api/projects/{id}/comments" as CommC
+        component "FilesController\n[Authorize]\nPOST /api/projects/{id}/files/upload\nGET  /api/projects/{id}/files\nGET  /api/files/{id}/download" as FileC
+    }
+
+    package "Helpers" {
+        component "TokenService\nGenerateToken(user)\n→ reads Key,Issuer,Audience,Expiry\n→ packs claims: userId,email,name,role\n→ HMAC-SHA256 sign\n→ returns eyJ... string" as TokenSvc
+    }
+
+    package "Services/Implementations" {
+        component "AuthService\nRegisterAsync()\n→ BCrypt.HashPassword()\nLoginAsync()\n→ BCrypt.Verify()\n→ TokenService.GenerateToken()" as AuthSvc
+        component "ProjectService\nCreateAsync()\nGetAllAsync()\nGetByIdAsync()\nUpdateStatusAsync()" as ProjSvc
+        component "TaskService\nCreateAsync()\n→ validate ProjectId\n→ validate AssignedToUserId\nGetByProjectIdAsync()\nUpdateStatusAsync()" as TaskSvc
+        component "ApprovalService\nCreateAsync()\nApproveAsync()\nRejectAsync()\nRequestChangesAsync()" as ApprSvc
+        component "CommentService\nCreateAsync()\nGetByProjectIdAsync()" as CommSvc
+        component "FileService\nUploadAsync()\n→ wwwroot/uploads/{GUID}.ext\n→ auto VersionNumber\nDownloadAsync()" as FileSvc
+    }
+
+    package "appsettings.json" {
+        component "Jwt: Key, Issuer, Audience, ExpiryMinutes=120\nConnectionStrings: DefaultConnection\nSerilog: Console+File sinks" as AppSet
+    }
+}
+
+' ApiService calls API
+ApiSvc --> ExMid : HTTP Request\nAuthorization: Bearer eyJ...
+
+' Middleware chain
+ExMid --> LogMid : next()
+LogMid --> UseAuth : next()
+UseAuth --> UseAuthorize : next() — User populated
+UseAuthorize --> AuthC : next() — [AllowAnonymous]
+UseAuthorize --> ProjC : next() — JWT valid ✅
+UseAuthorize --> TaskC : next() — JWT valid ✅
+UseAuthorize --> ApprC : next() — JWT valid ✅
+UseAuthorize --> CommC : next() — JWT valid ✅
+UseAuthorize --> FileC : next() — JWT valid ✅
+
+' Controllers → Services
+AuthC --> AuthSvc
+ProjC --> ProjSvc
+TaskC --> TaskSvc
+ApprC --> ApprSvc
+CommC --> CommSvc
+FileC --> FileSvc
+
+' AuthService → TokenService
+AuthSvc --> TokenSvc : GenerateToken(user)
+TokenSvc --> AppSet : reads Key,Issuer,Audience,Expiry
+
+' AddJwtBearer reads same settings
+UseAuth --> AppSet : ValidIssuerSigningKey\nValidIssuer\nValidAudience
+
+@enduml

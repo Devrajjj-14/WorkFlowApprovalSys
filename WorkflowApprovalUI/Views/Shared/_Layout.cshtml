@@ -51,6 +51,10 @@
             {
                 <div class="toast toast-error"><i class="fa-solid fa-circle-exclamation"></i> @TempData["Error"]</div>
             }
+            @if (TempData["ServerTime"] != null)
+            {
+                <div class="toast toast-success"><i class="fa-solid fa-stopwatch"></i> @TempData["ServerTime"]</div>
+            }
             @RenderBody()
         </main>
     </div>
