@@ -1,3 +1,4 @@
+@using WorkflowApprovalUI.Helpers
 @model List<WorkflowApprovalUI.Models.ProjectResponse>
 @{ ViewData["Title"] = "Projects"; }
 
@@ -33,7 +34,7 @@ else
                     <p class="project-desc">@(p.Description.Length > 90 ? p.Description[..90] + "…" : p.Description)</p>
                 </div>
                 <div class="project-card-footer">
-                    <span><i class="fa-regular fa-calendar"></i> @p.CreatedAt.ToString("MMM d, yyyy")</span>
+                    @Html.Raw(AuditHelper.ProjectAuditLabel(p))
                     <span class="card-arrow"><i class="fa-solid fa-arrow-right"></i></span>
                 </div>
             </a>

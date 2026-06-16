@@ -130,17 +130,26 @@ public class ApprovalService : IApprovalService
 
     private static ApprovalResponse MapToResponse(Approval approval)
     {
+        // ── Business rule for audit label ────────────────────────────────────
+        // ReviewedByUserId == null  → approval is still Pending   → show nothing
+        // ReviewedByUserId != null  → approval was acted on       → show "Approved/Rejected/Changes by"
         return new ApprovalResponse
         {
-            Id = approval.Id,
-            ProjectId = approval.ProjectId,
-            FileId = approval.FileId,
-            RequestedByUserId = approval.RequestedByUserId,
-            ReviewedByUserId = approval.ReviewedByUserId,
-            Status = approval.Status.ToString(),
-            Remarks = approval.Remarks,
-            RequestedAt = approval.RequestedAt,
-            ReviewedAt = approval.ReviewedAt
+            Id                 = approval.Id,
+            ProjectId          = approval.ProjectId,
+            FileId             = approval.FileId,
+            Status             = approval.Status.ToString(),
+            Remarks            = approval.Remarks,
+
+            // Audit – requester (always present)
+            RequestedByUserId  = approval.RequestedByUserId,
+            RequestedByName    = approval.RequestedByUser.FullName,
+            RequestedAt        = approval.RequestedAt,
+
+            // Audit – reviewer (null while Pending)
+            ReviewedByUserId   = approval.ReviewedByUserId,
+            ReviewedByName     = approval.ReviewedByUser?.FullName,  // ?. safe: may be null
+            ReviewedAt         = approval.ReviewedAt
         };
     }
 }

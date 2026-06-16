@@ -31,8 +31,15 @@ public class ProjectResponse
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+
+    // Audit – creation (always present)
     public int CreatedByUserId { get; set; }
+    public string CreatedByName { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+
+    // Audit – last update (null means never edited)
+    public int? UpdatedByUserId { get; set; }
+    public string? UpdatedByName { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
 
@@ -52,8 +59,15 @@ public class TaskResponse
     public string Status { get; set; } = string.Empty;
     public string Priority { get; set; } = string.Empty;
     public int AssignedToUserId { get; set; }
+
+    // Audit – creation (always present)
     public int AssignedByUserId { get; set; }
+    public string AssignedByName { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+
+    // Audit – last status update (null means never updated)
+    public int? UpdatedByUserId { get; set; }
+    public string? UpdatedByName { get; set; }
     public DateTime UpdatedAt { get; set; }
 }
 
@@ -72,11 +86,17 @@ public class ApprovalResponse
     public int Id { get; set; }
     public int ProjectId { get; set; }
     public int? FileId { get; set; }
-    public int RequestedByUserId { get; set; }
-    public int? ReviewedByUserId { get; set; }
     public string Status { get; set; } = string.Empty;
     public string Remarks { get; set; } = string.Empty;
+
+    // Audit – requester (always present)
+    public int RequestedByUserId { get; set; }
+    public string RequestedByName { get; set; } = string.Empty;
     public DateTime RequestedAt { get; set; }
+
+    // Audit – reviewer (null while Pending)
+    public int? ReviewedByUserId { get; set; }
+    public string? ReviewedByName { get; set; }
     public DateTime? ReviewedAt { get; set; }
 }
 

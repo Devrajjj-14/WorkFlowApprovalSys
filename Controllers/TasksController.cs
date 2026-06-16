@@ -44,7 +44,8 @@ public class TasksController : ControllerBase
     [HttpPut("{id}/status")]
     public async Task<ActionResult<TaskResponse>> UpdateStatus(int id, [FromBody] TaskUpdateStatusRequest request)
     {
-        var result = await _taskService.UpdateStatusAsync(id, request);
+        var userId = GetCurrentUserId();    // capture who is changing the status
+        var result = await _taskService.UpdateStatusAsync(id, request, userId);
         if (result == null)
             return NotFound(new { message = "Task not found." });
         return Ok(result);

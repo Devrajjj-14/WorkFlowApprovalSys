@@ -34,6 +34,14 @@ public class AppDbContext : DbContext
                 .WithMany(u => u.CreatedProjects)
                 .HasForeignKey(p => p.CreatedByUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // UpdatedByUser is nullable — not every project has been edited after creation.
+            // HasForeignKey points to the new UpdatedByUserId column added in the migration.
+            entity.HasOne(p => p.UpdatedByUser)
+                .WithMany()
+                .HasForeignKey(p => p.UpdatedByUserId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<WorkflowTask>(entity =>
@@ -51,6 +59,13 @@ public class AppDbContext : DbContext
             entity.HasOne(t => t.AssignedByUser)
                 .WithMany(u => u.AssignedByTasks)
                 .HasForeignKey(t => t.AssignedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // UpdatedByUser is nullable — brand-new tasks have never been status-updated.
+            entity.HasOne(t => t.UpdatedByUser)
+                .WithMany()
+                .HasForeignKey(t => t.UpdatedByUserId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

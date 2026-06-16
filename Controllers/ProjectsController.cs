@@ -49,7 +49,8 @@ public class ProjectsController : ControllerBase
     [HttpPut("{id}/status")]
     public async Task<ActionResult<ProjectResponse>> UpdateStatus(int id, [FromBody] ProjectUpdateStatusRequest request)
     {
-        var result = await _projectService.UpdateStatusAsync(id, request);
+        var userId = GetCurrentUserId();    // capture who is changing the status
+        var result = await _projectService.UpdateStatusAsync(id, request, userId);
         if (result == null)
             return NotFound(new { message = "Project not found." });
         return Ok(result);

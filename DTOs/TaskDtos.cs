@@ -23,7 +23,18 @@ public class TaskResponse
     public string Status { get; set; } = string.Empty;
     public string Priority { get; set; } = string.Empty;
     public int AssignedToUserId { get; set; }
+
+    // ── Audit: Creation / Assignment ─────────────────────────────────────────
+    // AssignedByUserId/Name identifies who created and assigned the task.
+    // These are always populated — every task has a creator.
     public int AssignedByUserId { get; set; }
+    public string AssignedByName { get; set; } = string.Empty;  // Full name from Users table
     public DateTime CreatedAt { get; set; }
+
+    // ── Audit: Last Status Update ─────────────────────────────────────────────
+    // Nullable — null means the task status was never changed after creation.
+    // The UI uses: if UpdatedByUserId has value → show "Last updated by", else "Created by".
+    public int? UpdatedByUserId { get; set; }
+    public string? UpdatedByName { get; set; }                  // null when never updated
     public DateTime UpdatedAt { get; set; }
 }

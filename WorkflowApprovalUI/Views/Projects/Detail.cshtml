@@ -1,5 +1,6 @@
 //How this page is getting rendered for this specific project? how is the data getting passed to this page? what is the flow of control from the moment user clicks on a project in the project list page to the moment this page gets rendered with all the data?
 
+@using WorkflowApprovalUI.Helpers
 @model WorkflowApprovalUI.Models.ProjectDetailViewModel
 @{
     ViewData["Title"] = Model.Project.Name;
@@ -33,6 +34,7 @@
         <div>
             <h2 class="hero-title">@Model.Project.Name</h2>
             <p class="hero-desc">@Model.Project.Description</p>
+            @Html.Raw(AuditHelper.ProjectAuditLabel(Model.Project))
         </div>
     </div>
     <div class="project-hero-right">
@@ -89,6 +91,7 @@
                             <div>
                                 <div class="task-title">@t.Title</div>
                                 <div class="task-meta">@t.Description</div>
+                                @Html.Raw(AuditHelper.TaskAuditLabel(t))
                             </div>
                         </div>
                         <div class="task-row-right">
@@ -225,11 +228,8 @@
                         <span class="status-badge status-@a.Status.ToLower().Replace(" ","")">@a.Status</span>
                     </div>
                     <div class="approval-meta">
-                        <span><i class="fa-regular fa-clock"></i> Requested @a.RequestedAt.ToString("MMM d, yyyy HH:mm")</span>
-                        @if (a.ReviewedAt.HasValue)
-                        {
-                            <span><i class="fa-solid fa-check"></i> Reviewed @a.ReviewedAt.Value.ToString("MMM d, yyyy HH:mm")</span>
-                        }
+                        @Html.Raw(AuditHelper.ApprovalRequesterLabel(a))
+                        @Html.Raw(AuditHelper.ApprovalReviewerLabel(a))
                     </div>
                     @if (a.Status == "Pending" && canApprove)
                     {
