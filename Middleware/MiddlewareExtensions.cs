@@ -7,6 +7,7 @@ public static class MiddlewareExtensions
         app.UseMiddleware<ExceptionHandlingMiddleware>();
         app.UseMiddleware<RequestLoggingMiddleware>();
         app.UseMiddleware<ServerTimingMiddleware>();
+        app.UseMiddleware<TokenBlacklistMiddleware>();
         return app;
     }
 }

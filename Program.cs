@@ -140,6 +140,11 @@ try
     // Without this: AuthService constructor can't receive TokenService — app crashes on startup
     builder.Services.AddScoped<TokenService>();
 
+    // Register TokenBlacklistService as Singleton.
+    // Singleton means one shared instance for the entire app lifetime.
+    // The blacklist must persist across all requests — Scoped/Transient would reset it per request.
+    builder.Services.AddSingleton<WorkflowApprovalApi.Services.Implementations.TokenBlacklistService>();
+
     // Maps IAuthService (Services/Interfaces/IAuthService.cs)
     //   to AuthService (Services/Implementations/AuthService.cs)
     // AuthController depends on IAuthService — without this it cannot be constructed
