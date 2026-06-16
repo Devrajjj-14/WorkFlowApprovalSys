@@ -1,97 +1,83 @@
+// ── Namespace ─────────────────────────────────────────────────────────────────
+// Without this: AuditHelper wouldn't be in WorkflowApprovalUI.Helpers — views couldn't @using it
 namespace WorkflowApprovalUI.Helpers;
 
-/// <summary>
-/// Centralised helper for generating human-readable audit trail labels.
-///
-/// WHY this exists:
-///   Every card in the UI (Project, Task, Approval) needs to show who did what and when.
-///   Putting this logic in one static class means:
-///     - Views stay clean (no C# date maths inside .cshtml)
-///     - Changing the wording ("mins ago" → "minutes ago") only requires editing one file
-///     - The same logic is reused across all three entity types
-///
-/// HOW it is used:
-///   In any .cshtml file, call:
-///     @AuditHelper.ProjectAuditLabel(project)
-///     @AuditHelper.TaskAuditLabel(task)
-///     @AuditHelper.ApprovalAuditLabel(approval)
-///   Each method returns a ready-to-render HTML string.
-/// </summary>
+// AuditHelper builds human-readable HTML audit lines for project, task, and approval cards
+// Centralizes date math and wording so .cshtml stays simple and one place controls labels
+// Without this class: every view duplicates audit HTML — inconsistent wording and hard maintenance
 public static class AuditHelper
 {
     // ── Time-Ago Formatter ────────────────────────────────────────────────────
-    /// <summary>
-    /// Converts a UTC DateTime to a short, human-readable relative string.
-    ///
-    /// WHY relative timestamps instead of absolute:
-    ///   "5 mins ago" is far more scannable for users than "2026-06-12 10:32:44".
-    ///   Absolute timestamps are already shown elsewhere (e.g., Approval requested date).
-    ///
-    /// EDGE CASES handled:
-    ///   - DateTime.MinValue (default/uninitialised) → returns "unknown"
-    ///   - Clocks slightly out of sync can produce negative elapsed; treated as "Just now"
-    ///   - Anything over 365 days shows the full date to keep the label meaningful
-    /// </summary>
+    // Converts a UTC DateTime to short relative text like "5 mins ago" or "Jun 12, 2026"
+    // Without this method: views show raw timestamps or duplicate elapsed-time logic everywhere
     public static string TimeAgo(DateTime utcTime)
     {
-        // Guard: if no real value was provided, return a safe default
+        // Default/unset DateTime means no real timestamp — safe fallback for bad data
+        // Without this: MinValue shows nonsense like huge negative "days ago"
         if (utcTime == DateTime.MinValue) return "unknown";
 
+        // Difference between now (UTC) and the event time
+        // Without this: can't compute minutes/hours/days elapsed
         var elapsed = DateTime.UtcNow - utcTime;
 
-        // Negative elapsed can occur when server clocks are slightly out of sync
+        // Under 30 seconds feels "just happened" — also covers slight clock skew (negative elapsed)
+        // Without this: sub-minute events show awkward "0 mins ago"
         if (elapsed.TotalSeconds < 30)  return "Just now";
+
+        // Single minute bucket for 30s–2min range
+        // Without this: "1 min ago" never appears — jumps straight to "2 mins ago"
         if (elapsed.TotalMinutes < 2)   return "1 min ago";
+
+        // Whole minutes under one hour
+        // Without this: recent comments show hours instead of minutes
         if (elapsed.TotalMinutes < 60)  return $"{(int)elapsed.TotalMinutes} mins ago";
+
+        // Single hour bucket for 60–120 minutes
+        // Without this: "1 hr ago" skipped
         if (elapsed.TotalHours < 2)     return "1 hr ago";
+
+        // Whole hours under one day
+        // Without this: same-day events show "1 day ago" too early
         if (elapsed.TotalHours < 24)    return $"{(int)elapsed.TotalHours} hrs ago";
+
+        // Single day bucket for 24–48 hours
+        // Without this: "1 day ago" never shown
         if (elapsed.TotalDays < 2)      return "1 day ago";
+
+        // Days under a year — still scannable as relative
+        // Without this: week-old items jump to full date immediately
         if (elapsed.TotalDays < 365)    return $"{(int)elapsed.TotalDays} days ago";
 
-        // For old records show actual date — "365 days ago" is hard to understand
+        // Very old records: absolute date is clearer than "400 days ago"
+        // Without this: ancient audit lines become unreadably large day counts
         return utcTime.ToString("MMM d, yyyy");
     }
 
     // ── User ID Prefix Formatter ──────────────────────────────────────────────
-    /// <summary>
-    /// Formats a raw integer User ID into a labelled prefix string.
-    ///
-    /// WHY the prefix matters:
-    ///   The spec requires IDs to be displayed as "EMP-1024" or "ADM-001".
-    ///   We cannot determine role from the ID alone (we only have the name in the DTO),
-    ///   so we use a simple numeric-range heuristic: ID 1 = first user = likely admin.
-    ///   ID ≤ 10 gets "ADM" prefix; everything else gets "EMP".
-    ///
-    ///   In a real system you would pass the role string from the response instead.
-    ///   This helper is intentionally easy to change — update the prefix rules here only.
-    /// </summary>
+    // Formats numeric user id as ADM-001 or EMP-1024 for display in audit lines
+    // Without this method: audit shows raw ids — doesn't match spec-style prefixed labels
     private static string FormatUserId(int userId)
     {
-        // Users with very low IDs are likely admin/seed accounts
+        // Heuristic: low ids (seed/admin) get ADM prefix, others EMP — easy to change in one place
+        // Without this: all users show same prefix or raw number only
         var prefix = userId <= 10 ? "ADM" : "EMP";
-        // Zero-pad to at least 3 digits: 5 → "005", 1024 → "1024"
+
+        // Zero-pad to 3 digits minimum (5 → 005) for consistent width in UI
+        // Without this: ids align poorly and don't match ADM-001 style examples
         return $"{prefix}-{userId:D3}";
     }
 
     // ── Project Audit Label ───────────────────────────────────────────────────
-    /// <summary>
-    /// Returns the correct audit line for a Project card.
-    ///
-    /// BUSINESS RULE:
-    ///   If UpdatedByUserId is NULL  → project was never edited → show "Created by"
-    ///   If UpdatedByUserId has value → project was edited      → show "Last updated by"
-    ///
-    /// The original creation data is NOT replaced in the database — we always keep
-    /// CreatedByUserId/Name and simply show the more recent action to the user.
-    ///
-    /// Returns an HTML string so the Razor view can render it with @Html.Raw().
-    /// Icon classes use FontAwesome 6 (already loaded in the layout).
-    /// </summary>
+    // Returns HTML span for project card: "Created by" or "Last updated by" with icon and TimeAgo
+    // Without this method: project cards show no audit trail — who/when unknown
     public static string ProjectAuditLabel(WorkflowApprovalUI.Models.ProjectResponse p)
     {
+        // If project was edited after creation, show last updater line instead of creator-only
+        // Without this branch: edits still show "Created by" — misleading audit
         if (p.UpdatedByUserId.HasValue && !string.IsNullOrEmpty(p.UpdatedByName))
         {
-            // Project was edited at least once — show who last touched it
+            // HTML snippet with edit icon, name, formatted id, and relative update time
+            // Without this return: updated projects fall through to creator line incorrectly
             return $"<span class=\"audit-label\">" +
                    $"<i class=\"fa-solid fa-pen-to-square audit-icon\"></i>" +
                    $"Last updated by: <strong>{p.UpdatedByName}</strong> " +
@@ -99,7 +85,8 @@ public static class AuditHelper
                    $"</span>";
         }
 
-        // Project is brand-new or was never edited — show creator
+        // Never edited (or no updater name) — show original creator and creation time
+        // Without this return: new projects have no audit line at all
         return $"<span class=\"audit-label\">" +
                $"<i class=\"fa-solid fa-circle-user audit-icon\"></i>" +
                $"Created by: <strong>{p.CreatedByName}</strong> " +
@@ -108,20 +95,16 @@ public static class AuditHelper
     }
 
     // ── Task Audit Label ──────────────────────────────────────────────────────
-    /// <summary>
-    /// Returns the correct audit line for a Task row.
-    ///
-    /// BUSINESS RULE:
-    ///   If UpdatedByUserId is NULL  → status was never changed → show "Created by" (AssignedByUser)
-    ///   If UpdatedByUserId has value → status was changed      → show "Last updated by"
-    ///
-    /// Note: "Created by" uses AssignedByName, not a separate CreatedByName field,
-    /// because the person who assigned the task IS the creator.
-    /// </summary>
+    // Same pattern as project: creator (assigner) vs last status updater on task rows
+    // Without this method: task rows lack who created or last changed status
     public static string TaskAuditLabel(WorkflowApprovalUI.Models.TaskResponse t)
     {
+        // Status was changed at least once — show updater
+        // Without this branch: status changes still show only assigner as "Created by"
         if (t.UpdatedByUserId.HasValue && !string.IsNullOrEmpty(t.UpdatedByName))
         {
+            // Edit icon + last updater name, id prefix, and TimeAgo on UpdatedAt
+            // Without this return: updated tasks missing audit HTML
             return $"<span class=\"audit-label\">" +
                    $"<i class=\"fa-solid fa-pen-to-square audit-icon\"></i>" +
                    $"Last updated by: <strong>{t.UpdatedByName}</strong> " +
@@ -129,6 +112,8 @@ public static class AuditHelper
                    $"</span>";
         }
 
+        // Task never had status update — assigner is treated as creator
+        // Without this return: tasks with no updates show blank audit
         return $"<span class=\"audit-label\">" +
                $"<i class=\"fa-solid fa-circle-user audit-icon\"></i>" +
                $"Created by: <strong>{t.AssignedByName}</strong> " +
@@ -136,45 +121,52 @@ public static class AuditHelper
                $"</span>";
     }
 
-    // ── Approval Audit Label ──────────────────────────────────────────────────
-    /// <summary>
-    /// Returns the reviewer audit line for an Approval card.
-    ///
-    /// BUSINESS RULE:
-    ///   If ReviewedByUserId is NULL → approval is still Pending → show nothing (return "")
-    ///   Otherwise → show label matching the status:
-    ///     Approved          → "Approved by"
-    ///     Rejected          → "Rejected by"
-    ///     ChangesRequested  → "Changes requested by"
-    ///     (anything else)   → "Reviewed by"
-    ///
-    /// The requester label ("Requested by") is rendered separately in the view
-    /// so it always shows regardless of status.
-    /// </summary>
+    // ── Approval Reviewer Label ───────────────────────────────────────────────
+    // Reviewer line after approve/reject/request changes — empty while still Pending
+    // Without this method: approval cards never show who reviewed or outcome-specific verb
     public static string ApprovalReviewerLabel(WorkflowApprovalUI.Models.ApprovalResponse a)
     {
-        // Still pending — no reviewer yet, render nothing
+        // No reviewer yet — pending approvals should not show a reviewer line
+        // Without this: pending cards show empty or bogus reviewer text
         if (!a.ReviewedByUserId.HasValue || string.IsNullOrEmpty(a.ReviewedByName))
             return string.Empty;
 
-        // Pick the verb that matches the outcome
+        // Verb matches outcome: Approved by, Rejected by, Changes requested by, etc.
+        // Without this: all outcomes say generic "Reviewed by" — less clear UX
         var verb = a.Status switch
         {
+            // Without this case: approved items don't say "Approved by"
             "Approved"         => "Approved by",
+
+            // Without this case: rejected items don't say "Rejected by"
             "Rejected"         => "Rejected by",
+
+            // Without this case: change requests don't say "Changes requested by"
             "ChangesRequested" => "Changes requested by",
+
+            // Without this default: unknown statuses have no label text
             _                  => "Reviewed by"
         };
 
-        // Icon colour class changes per outcome to reinforce the status visually
+        // Font Awesome icon class varies by outcome for color-coded visual cue
+        // Without this: all reviewer lines use same icon — status less scannable
         var iconClass = a.Status switch
         {
+            // Without this case: approved lines miss green check icon
             "Approved"         => "fa-circle-check audit-icon-success",
+
+            // Without this case: rejected lines miss red X icon
             "Rejected"         => "fa-circle-xmark audit-icon-danger",
+
+            // Without this case: change-request lines miss warning rotate icon
             "ChangesRequested" => "fa-rotate-left audit-icon-warning",
+
+            // Without this default: fallback generic user-check icon
             _                  => "fa-user-check audit-icon"
         };
 
+        // Full HTML span for reviewer — views use @Html.Raw on this string
+        // Without this return: reviewer name and time never rendered on card
         return $"<span class=\"audit-label\">" +
                $"<i class=\"fa-solid {iconClass}\"></i>" +
                $"{verb}: <strong>{a.ReviewedByName}</strong> " +
@@ -182,12 +174,13 @@ public static class AuditHelper
                $"</span>";
     }
 
-    /// <summary>
-    /// Always-visible requester line shown on every approval card regardless of status.
-    /// Displayed above the reviewer label so users can see the full audit trail.
-    /// </summary>
+    // ── Approval Requester Label ────────────────────────────────────────────────
+    // Always shown on every approval card — who submitted the request and when
+    // Without this method: approval cards miss the requester half of the audit trail
     public static string ApprovalRequesterLabel(WorkflowApprovalUI.Models.ApprovalResponse a)
     {
+        // Requester line with user icon — separate from reviewer so both show on completed approvals
+        // Without this return: "Requested by" line missing — incomplete history
         return $"<span class=\"audit-label\">" +
                $"<i class=\"fa-solid fa-circle-user audit-icon\"></i>" +
                $"Requested by: <strong>{a.RequestedByName}</strong> " +
